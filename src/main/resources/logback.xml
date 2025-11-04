@@ -1,0 +1,16 @@
+<configuration>
+
+  <!-- This "appender" tells Logback to send log messages to the console. -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- This defines the format for each log message. -->
+      <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- This sets the default logging level to "INFO" for the entire application. -->
+  <root level="info">
+    <appender-ref ref="STDOUT" />
+  </root>
+
+</configuration>

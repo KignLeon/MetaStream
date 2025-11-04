@@ -1,0 +1,56 @@
+# Compiled output
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+target/
+build/
+
+# IDE files
+.idea/
+.vscode/
+.project
+.classpath
+.settings/
+*.iml
+*.iws
+*.ipr
+nbproject/
+.DS_Store
+**/.DS_Store # macOS specific
+Thumbs.db # Windows specific
+
+# Maven specific
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle specific
+.gradle/
+build/
+*.log
+!gradle/wrapper/gradle-wrapper.jar
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*~
+*.bak
+*.swp
+*.swo
+*.tmp
+
+# Sensitive information (example)
+config.properties
+application.properties
+*.key
+*.pem
