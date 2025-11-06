@@ -12,86 +12,123 @@ import static spark.Spark.post;
 import static spark.Spark.staticFiles;
 
 /**
- * File: Main.java
- * This is the main entry point for the FTI website's backend server.
- * It uses the SparkJava framework to serve the website and handle form submissions.
+ * MetaStream Live - Backend Server Handles user sessions, chat messages, and
+ * notification events.
  */
 public class Main {
 
-    // A dedicated logger is better practice than System.out.println or printStackTrace
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     private static final Gson gson = new Gson();
+
+    // Active session
+    private static StreamSession activeSession;
 
     public static void main(String[] args) {
 
         // --- Server Configuration ---
+        port(getAssignedPort());
+        staticFiles.location("/public"); // Points to src/main/resources/public
+        LOGGER.info("MetaStream Live Server started at http://localhost:{}", getAssignedPort());
 
-        // Set the port the server will run on. Use the PORT environment variable if set, otherwise default to 8080.
-        port(getHerokuAssignedPort());
-
-        // Tell Spark where to find our static files (HTML, CSS, JS, images).
-        staticFiles.location("/public");
-
-
-        // --- Routing ---
-
-        // Define the POST endpoint for the enrollment form.
-        post("/enroll", (request, response) -> {
-            
-            response.type("application/json");
+        // --- ROUTES ---
+        /**
+         * Start a new live stream session. Request JSON: { "username": "Leon",
+         * "ttsEnabled": true }
+         */
+        post("/startStream", (req, res) -> {
+            res.type("application/json");
 
             try {
-                String requestBody = request.body();
-                JsonObject submission = gson.fromJson(requestBody, JsonObject.class);
-
-                // Check for null values which might occur with malformed JSON
-                if (submission == null || submission.get("name") == null || submission.get("email") == null) {
-                    response.status(400); // Bad Request
-                    return "{\"status\":\"error\", \"message\":\"Malformed request. Name and email are required.\"}";
+                JsonObject data = gson.fromJson(req.body(), JsonObject.class);
+                if (data == null || !data.has("username")) {
+                    res.status(400);
+                    return "{\"status\":\"error\", \"message\":\"Missing username.\"}";
                 }
 
-                // --- DATA HANDLING ---
-                // In a real application, you would save this to a database or send an email.
-                // For this example, we log it to confirm receipt.
-                LOGGER.info("=========================================");
-                LOGGER.info("===      NEW ENROLLMENT REQUEST      ===");
-                LOGGER.info("=========================================");
-                LOGGER.info("Name: {}", submission.get("name").getAsString());
-                LOGGER.info("Email: {}", submission.get("email").getAsString());
-                LOGGER.info("Phone: {}", submission.get("phone").getAsString());
-                LOGGER.info("Services: {}", submission.get("services").getAsString());
-                LOGGER.info("Wants Free Consultation: {}", submission.get("consultation").getAsBoolean());
-                LOGGER.info("=========================================");
+                String username = data.get("username").getAsString();
+                boolean ttsEnabled = data.has("ttsEnabled") && data.get("ttsEnabled").getAsBoolean();
 
-                // Return a success message to the frontend.
-                return "{\"status\":\"success\", \"message\":\"Enrollment received!\"}";
+                User user = new User(username);
+                user.setPreferences(ttsEnabled);
 
-            } catch (JsonSyntaxException jsonEx) {
-                // This catches errors if the incoming data isn't valid JSON.
-                LOGGER.error("Error parsing JSON from request", jsonEx);
-                response.status(400); // Bad Request
-                return "{\"status\":\"error\", \"message\":\"Invalid data format.\"}";
-            } catch (Exception e) {
-                // This is a general catch-all for any other unexpected server errors.
-                LOGGER.error("An unexpected error occurred", e);
-                response.status(500); // Internal Server Error
-                return "{\"status\":\"error\", \"message\":\"An internal server error occurred.\"}";
+                activeSession = new StreamSession(user);
+                activeSession.startSession();
+
+                LOGGER.info("🎬 Stream started by user: {}", username);
+                return "{\"status\":\"success\", \"message\":\"Stream started for user: " + username + "\"}";
+
+            } catch (JsonSyntaxException e) {
+                LOGGER.error("JSON parsing error", e);
+                res.status(400);
+                return "{\"status\":\"error\",\"message\":\"Invalid JSON format.\"}";
             }
         });
 
-        LOGGER.info("FTI server started. Access at http://localhost:{}", getHerokuAssignedPort());
+        /**
+         * Add a chat message to the active stream. Request JSON: { "author":
+         * "Sarah", "text": "Hello everyone!" }
+         */
+        post("/sendMessage", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null) {
+                res.status(400);
+                return "{\"status\":\"error\",\"message\":\"No active stream.\"}";
+            }
+
+            try {
+                JsonObject data = gson.fromJson(req.body(), JsonObject.class);
+                if (!data.has("author") || !data.has("text")) {
+                    res.status(400);
+                    return "{\"status\":\"error\",\"message\":\"Missing fields.\"}";
+                }
+
+                String author = data.get("author").getAsString();
+                String text = data.get("text").getAsString();
+
+                ChatMessage message = new ChatMessage(author, text);
+                activeSession.addMessage(message);
+
+                LOGGER.info("[{}]: {}", author, text);
+                return "{\"status\":\"success\",\"message\":\"Message sent.\"}";
+
+            } catch (JsonSyntaxException e) {
+                LOGGER.error("Error adding chat message", e);
+                res.status(500);
+                return "{\"status\":\"error\",\"message\":\"Internal error.\"}";
+            }
+        });
+
+        /**
+         * Stop the current stream session and log details.
+         */
+        post("/stopStream", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null) {
+                res.status(400);
+                return "{\"status\":\"error\",\"message\":\"No active stream.\"}";
+            }
+
+            try {
+                activeSession.stopSession();
+                LOGGER.info("🛑 Stream stopped. Total messages: {}", activeSession.getMessages().size());
+                activeSession = null;
+                return "{\"status\":\"success\",\"message\":\"Stream ended.\"}";
+            } catch (Exception e) {
+                LOGGER.error("Error stopping stream", e);
+                res.status(500);
+                return "{\"status\":\"error\",\"message\":\"Could not stop stream.\"}";
+            }
+        });
     }
 
     /**
-     * A helper method to get the port from the environment variable.
-     * @return The port number.
+     * Gets the port number from environment variable (for deployment), or
+     * defaults to 8080 when running locally.
      */
-    static int getHerokuAssignedPort() {
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        String port = processBuilder.environment().get("PORT");
-        if (port != null) {
-            return Integer.parseInt(port);
-        }
-        return 8080; // Default port
+    private static int getAssignedPort() {
+        String port = new ProcessBuilder().environment().get("PORT");
+        return port != null ? Integer.parseInt(port) : 8080;
     }
 }

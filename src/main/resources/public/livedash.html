@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaStream Live Dashboard</title>
+    <!-- Importing Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importing Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Tailwind configuration and base styles -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand-dark': '#0a1931',
+                        'brand-live': '#d90429',
+                        'brand-live-bg': '#ffebee',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Basic body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #ffffff, #f0f2f9);
+        }
+
+        /* Custom CSS for the toggle switch */
+        /* Hide default checkbox */
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #3b82f6;
+            /* blue-500 */
+        }
+
+        .toggle-checkbox:checked+.toggle-label::after {
+            transform: translateX(100%);
+            border-color: white;
+        }
+
+        .toggle-label {
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .toggle-label::after {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Live indicator pulse */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .animate-pulse-live {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+
+<body class="text-gray-900 antialiased">
+
+    <div class="container mx-auto max-w-7xl p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <!-- Logo and Live Status -->
+            <div class="flex items-center gap-3">
+                <!-- Logo Icon (Infinity Symbol) -->
+                <svg class="w-8 h-8 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Zm-3.182-3.182a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3a2.25 2.25 0 0 0-3.182 0l-1.06 1.06Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9.879 7.519a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Zm.002 6.364a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3a2.25 2.25 0 0 0-3.182 0l-1.06 1.06Z" />
+                </svg>
+                <h1 class="text-2xl font-bold text-gray-800">MetaStream Live</h1>
+                <span
+                    class="flex items-center gap-2 ml-2 px-3 py-1 bg-brand-live-bg text-brand-live text-xs font-bold rounded-md">
+                    <span class="w-2 h-2 bg-brand-live rounded-full animate-pulse-live"></span>
+                    LIVE
+                </span>
+            </div>
+
+            <!-- User Icons -->
+            <div class="flex items-center gap-4">
+                <!-- Notification Icon -->
+                <svg class="w-6 h-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a23.842 23.842 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                </svg>
+                <!-- Profile Icon -->
+                <div class="w-9 h-9 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
+                    <svg class="w-6 h-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none"
+                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Panel: Stream -->
+            <section class="lg:col-span-2 bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100">
+                <!-- Video Player Placeholder -->
+                <div class="w-full aspect-video bg-brand-dark rounded-xl mb-6 flex items-center justify-center">
+                    <p class="text-gray-500">Video Stream</p>
+                </div>
+
+                <!-- Stream Stats -->
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6 pb-6 border-b border-gray-200">
+                    <!-- Viewers -->
+                    <div class="flex items-center gap-3 text-gray-600">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                        <span class="text-gray-900 font-semibold text-lg">238</span>
+                        <span class="text-sm">Viewers</span>
+                    </div>
+                    <!-- Duration -->
+                    <div class="flex items-center gap-3 text-gray-600">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <span class="text-gray-900 font-semibold text-lg">01:18:37</span>
+                        <span class="text-sm">Duration</span>
+                    </div>
+                    <!-- Stop Stream (Placeholder) -->
+                    <div class="flex items-center gap-3 text-gray-600 cursor-pointer hover:text-gray-900">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                        </svg>
+                        <span class="text-sm font-medium">Stop stream</span>
+                    </div>
+                </div>
+
+                <!-- Stream Actions -->
+                <div class="flex flex-col md:flex-row gap-4 pt-6">
+                    <button
+                        class="w-full md:w-auto flex-1 text-center px-6 py-3 bg-red-50 border border-red-200 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-colors">
+                        Stop Stream
+                    </button>
+                    <button
+                        class="w-full md:w-auto flex-1 text-center px-6 py-3 bg-gray-100 border border-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors">
+                        View Logs
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Panel: Chat -->
+            <section class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col"
+                style="max-height: 80vh;">
+                <!-- Chat Header -->
+                <h2 class="text-xl font-semibold p-5 border-b border-gray-200">
+                    Live Chat
+                </h2>
+
+                <!-- Chat Messages -->
+                <div class="flex-1 p-5 space-y-6 overflow-y-auto">
+                    <!-- Message: Incoming -->
+                    <div class="flex gap-3">
+                        <div class="w-full">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-semibold text-sm">Alex</span>
+                                <span class="text-xs text-gray-400">14:59A</span>
+                            </div>
+                            <div class="bg-gray-100 p-3 rounded-lg rounded-tl-none">
+                                <p class="text-sm text-gray-700">Hello everyone!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Message: Outgoing -->
+                    <div class="flex justify-end gap-3">
+                        <div class="w-full max-w-xs">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-semibold text-sm text-blue-600">Alex</span>
+                                <span class="text-xs text-gray-400">15:15 d</span>
+                            </div>
+                            <div class="bg-blue-100 text-blue-800 p-3 rounded-lg rounded-tr-none">
+                                <p class="text-sm">This is awesome</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Message: Incoming -->
+                    <div class="flex gap-3">
+                        <div class="w-full">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-semibold text-sm">Sarah</span>
+                                <span class="text-xs text-gray-400">15:24 h</span>
+                            </div>
+                            <div class="bg-gray-100 p-3 rounded-lg rounded-tl-none">
+                                <p class="text-sm text-gray-700">Nice view!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Message: Outgoing -->
+                    <div class="flex justify-end gap-3">
+                        <div class="w-full max-w-xs">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-semibold text-sm text-blue-600">David</span>
+                                <span class="text-xs text-gray-400">12:42 h</span>
+                            </div>
+                            <div class="bg-blue-100 text-blue-800 p-3 rounded-lg rounded-tr-none">
+                                <p class="text-sm">Thanks for tuning in.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="p-5 border-t border-gray-200">
+                    <input type="text" placeholder="Send a message..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <!-- Chat Toggles -->
+                <div classs="p-5 border-t border-gray-200 space-y-4">
+                    <!-- Toggle 1: SMS Alerts -->
+                    <div class="flex justify-between items-center p-5">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100">
+                                <svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                </svg>
+                            </span>
+                            <span class="text-sm font-medium text-gray-700">Enable SMS Alerts</span>
+                        </div>
+                        <!-- Toggle Switch -->
+                        <div class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="sms-toggle" class="sr-only toggle-checkbox" checked>
+                            <div for="sms-toggle"
+                                class="toggle-label w-11 h-6 bg-gray-200 rounded-full border border-gray-200 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Toggle 2: TTS Audio -->
+                    <div class="flex justify-between items-center p-5 pt-0">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100">
+                                <svg class="w-5 h-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                                </svg>
+                            </span>
+                            <span class="text-sm font-medium text-gray-700">Enable TTS Audio</span>
+                        </div>
+                        <!-- Toggle Switch -->
+                        <div class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="tts-toggle" class="sr-only toggle-checkbox">
+                            <div for="tts-toggle"
+                                class="toggle-label w-11 h-6 bg-gray-200 rounded-full border border-gray-200 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+</body>
+
+</html>
