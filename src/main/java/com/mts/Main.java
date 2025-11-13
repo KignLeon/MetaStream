@@ -2,7 +2,6 @@ package com.mts;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -13,32 +12,30 @@ import static spark.Spark.post;
 import static spark.Spark.staticFiles;
 
 /**
- * MetaStream Live — Local + Cloud Backend Server Handles serving static web
- * pages and API routes for chat and session control.
+ * MetaStream Live — Backend Server Handles serving pages and live streaming API
+ * routes.
  */
 public class Main {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     private static final Gson gson = new Gson();
 
-    // Active stream session
+    // Current active session
     private static StreamSession activeSession;
 
     public static void main(String[] args) {
 
-        // --- SERVER CONFIG ---
+        // --- SERVER CONFIGURATION ---
         port(getAssignedPort());
-        staticFiles.location("/public"); // Serves files from src/main/resources/public
+        staticFiles.location("/public");
         LOGGER.info("🌐 MetaStream Live running at http://localhost:{}", getAssignedPort());
 
         // --- ROUTES ---
-        // Root route: serve index.html directly
         get("/", (req, res) -> {
             res.redirect("/index.html");
             return null;
         });
 
-        // Serve viewer.html manually (optional, demonstration)
         get("/viewer", (req, res) -> {
             res.redirect("/viewer.html");
             return null;
@@ -46,8 +43,10 @@ public class Main {
 
         // --- API ROUTES ---
         /**
-         * POST /startStream Starts a new live session. Example JSON: {
-         * "username": "Leon", "ttsEnabled": true }
+         * POST /startStream Starts a new stream with RTMP configuration.
+         * Expected JSON: { "username": "Leon", "ttsEnabled": true, "rtmpUrl":
+         * "rtmps://live-upload.instagram.com:443/rtmp/", "streamKey":
+         * "IG-STREAM-KEY-HERE" }
          */
         post("/startStream", (req, res) -> {
             res.type("application/json");
@@ -58,30 +57,38 @@ public class Main {
                     return "{\"status\":\"error\", \"message\":\"Missing username.\"}";
                 }
 
+                // Extract fields
                 String username = data.get("username").getAsString();
                 boolean ttsEnabled = data.has("ttsEnabled") && data.get("ttsEnabled").getAsBoolean();
+                String rtmpUrl = data.has("rtmpUrl") ? data.get("rtmpUrl").getAsString() : null;
+                String streamKey = data.has("streamKey") ? data.get("streamKey").getAsString() : null;
 
+                // Create and configure user
                 User user = new User(username);
                 user.setPreferences(ttsEnabled);
+                user.setRtmpUrl(rtmpUrl);
+                user.setStreamKey(streamKey);
+
+                // Create and start session
                 activeSession = new StreamSession(user);
                 activeSession.startSession();
 
-                LOGGER.info("🎬 Stream started by user: {}", username);
+                LOGGER.info("🎬 Stream started by {} with RTMP URL: {}", username, rtmpUrl);
                 return gson.toJson(new JsonObjectBuilder()
                         .add("status", "success")
                         .add("message", "Stream started for user: " + username)
+                        .add("rtmpUrl", rtmpUrl != null ? rtmpUrl : "N/A")
                         .build());
 
             } catch (JsonSyntaxException e) {
-                LOGGER.error("JSON parsing error", e);
+                LOGGER.error("❌ JSON parsing error", e);
                 res.status(400);
                 return "{\"status\":\"error\",\"message\":\"Invalid JSON format.\"}";
             }
         });
 
         /**
-         * POST /sendMessage Adds a chat message to the current stream. Example
-         * JSON: { "author": "Sarah", "text": "Hello everyone!" }
+         * POST /sendMessage Adds chat messages to active session.
          */
         post("/sendMessage", (req, res) -> {
             res.type("application/json");
@@ -105,7 +112,7 @@ public class Main {
                 activeSession.addMessage(message);
 
                 LOGGER.info("[{}]: {}", author, text);
-                return "{\"status\":\"success\",\"message\":\"Message received.\"}";
+                return "{\"status\":\"success\",\"message\":\"Message sent.\"}";
 
             } catch (JsonSyntaxException e) {
                 LOGGER.error("Error parsing chat message", e);
@@ -115,7 +122,29 @@ public class Main {
         });
 
         /**
-         * POST /stopStream Ends the current live stream session.
+         * GET /activeStream Returns active session info for dashboard refresh.
+         */
+        get("/activeStream", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null || !activeSession.isActive()) {
+                res.status(404);
+                return "{\"status\":\"error\",\"message\":\"No active stream.\"}";
+            }
+
+            JsonObject response = new JsonObject();
+            User u = activeSession.getUser();
+
+            response.addProperty("status", "active");
+            response.addProperty("username", u.getUsername());
+            response.addProperty("rtmpUrl", u.getRtmpUrl());
+            response.addProperty("startedAt", activeSession.getStartedAt().toString());
+            response.addProperty("messages", activeSession.getMessages().size());
+            return gson.toJson(response);
+        });
+
+        /**
+         * POST /stopStream Ends the active stream and clears session.
          */
         post("/stopStream", (req, res) -> {
             res.type("application/json");
@@ -138,16 +167,13 @@ public class Main {
         });
     }
 
-    /**
-     * Gets the port number from the environment (for deployment), or defaults
-     * to 8080 for local testing.
-     */
+    // --- PORT HANDLER ---
     private static int getAssignedPort() {
         String port = new ProcessBuilder().environment().get("PORT");
         return port != null ? Integer.parseInt(port) : 8080;
     }
 
-    // --- HELPER CLASS ---
+    // --- HELPER JSON BUILDER ---
     private static class JsonObjectBuilder {
 
         private final JsonObject obj = new JsonObject();

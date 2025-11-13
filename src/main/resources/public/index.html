@@ -14,7 +14,8 @@
 </head>
 
 <body class="bg-gradient-to-b from-white to-[#f0f2f9] flex items-center justify-center min-h-screen text-gray-800">
-    <div class="bg-white p-10 rounded-2xl shadow-lg max-w-md w-full text-center">
+    <div class="bg-white p-10 rounded-2xl shadow-lg max-w-md w-full text-center border border-gray-100">
+        <!-- Logo -->
         <div class="flex justify-center mb-6">
             <svg class="w-10 h-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 stroke-width="2" stroke="currentColor">
@@ -22,22 +23,87 @@
                     d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Zm-3.182-3.182a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3a2.25 2.25 0 0 0-3.182 0l-1.06 1.06Z" />
             </svg>
         </div>
+
         <h1 class="text-2xl font-bold mb-2">MetaStream Live</h1>
-        <p class="text-sm text-gray-500 mb-8">Go live in one click — seamless streaming powered by Meta.</p>
-        <form action="livedash.html" method="get" class="space-y-4">
-            <input type="text" name="username" placeholder="Enter your username" class="input" required />
-            <input type="text" name="streamUrl" placeholder="Paste your Live URL (Facebook or Instagram)" class="input"
+        <p class="text-sm text-gray-500 mb-8">
+            Go live in one click — seamless streaming powered by Meta.
+        </p>
+
+        <!-- Form -->
+        <form id="goLiveForm" class="space-y-4">
+            <input type="text" id="username" placeholder="Enter your username"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required />
+
+            <input type="url" id="rtmpUrl" placeholder="Paste your RTMP URL (Instagram or Facebook)"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required />
+
+            <input type="text" id="streamKey" placeholder="Enter your Stream Key"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required />
+
             <div class="flex justify-between items-center text-sm text-gray-600">
                 <label class="flex items-center gap-2">
-                    <input type="checkbox" class="accent-blue-600" /> Enable SMS & TTS Notifications
+                    <input id="ttsEnabled" type="checkbox" class="accent-blue-600" />
+                    Enable SMS & TTS Notifications
                 </label>
             </div>
-            <button type="submit" class="btn-primary w-full mt-4">Go Live</button>
+
+            <button type="submit"
+                class="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-all">
+                Go Live
+            </button>
         </form>
-        <p class="text-xs text-gray-400 mt-6">By continuing, you agree to MetaStream's <a href="#">Terms</a> & <a
-                href="#">Privacy</a>.</p>
+
+        <!-- Status -->
+        <p id="statusMsg" class="text-sm text-gray-500 mt-4 hidden"></p>
+
+        <p class="text-xs text-gray-400 mt-6">
+            By continuing, you agree to MetaStream's
+            <a href="#" class="underline">Terms</a> &
+            <a href="#" class="underline">Privacy</a>.
+        </p>
     </div>
+
+    <script>
+        document
+            .getElementById("goLiveForm")
+            .addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const username = document.getElementById("username").value.trim();
+                const rtmpUrl = document.getElementById("rtmpUrl").value.trim();
+                const streamKey = document.getElementById("streamKey").value.trim();
+                const ttsEnabled = document.getElementById("ttsEnabled").checked;
+
+                const statusMsg = document.getElementById("statusMsg");
+                statusMsg.classList.remove("hidden");
+                statusMsg.textContent = "Starting your stream...";
+
+                try {
+                    const response = await fetch("/startStream", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, rtmpUrl, streamKey, ttsEnabled }),
+                    });
+
+                    const result = await response.json();
+                    if (response.ok && result.status === "success") {
+                        statusMsg.textContent = "✅ Stream started! Redirecting...";
+                        // Redirect to dashboard after a short delay
+                        setTimeout(() => {
+                            window.location.href = "livedash.html";
+                        }, 800);
+                    } else {
+                        statusMsg.textContent = "⚠️ " + (result.message || "Error starting stream.");
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    statusMsg.textContent = "❌ Connection error. Try again.";
+                }
+            });
+    </script>
 </body>
 
 </html>
