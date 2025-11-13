@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetaStream Live | Launch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="icon" href="/assets/favicon.ico" type="image/x-icon" />
+</head>
+
+<body class="bg-gradient-to-b from-white to-[#f0f2f9] flex items-center justify-center min-h-screen text-gray-800">
+    <div class="bg-white p-10 rounded-2xl shadow-lg max-w-md w-full text-center">
+        <div class="flex justify-center mb-6">
+            <svg class="w-10 h-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Zm-3.182-3.182a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3a2.25 2.25 0 0 0-3.182 0l-1.06 1.06Z" />
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-2">MetaStream Live</h1>
+        <p class="text-sm text-gray-500 mb-8">Go live in one click — seamless streaming powered by Meta.</p>
+        <form action="livedash.html" method="get" class="space-y-4">
+            <input type="text" name="username" placeholder="Enter your username" class="input" required />
+            <input type="text" name="streamUrl" placeholder="Paste your Live URL (Facebook or Instagram)" class="input"
+                required />
+            <div class="flex justify-between items-center text-sm text-gray-600">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="accent-blue-600" /> Enable SMS & TTS Notifications
+                </label>
+            </div>
+            <button type="submit" class="btn-primary w-full mt-4">Go Live</button>
+        </form>
+        <p class="text-xs text-gray-400 mt-6">By continuing, you agree to MetaStream's <a href="#">Terms</a> & <a
+                href="#">Privacy</a>.</p>
+    </div>
+</body>
+
+</html>

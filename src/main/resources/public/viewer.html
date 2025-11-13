@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetaStream Live | Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="bg-gradient-to-b from-white to-[#f0f2f9] min-h-screen flex flex-col items-center">
+    <header class="navbar w-full">
+        <div class="flex items-center gap-3">
+            <svg class="w-7 h-7 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Z" />
+            </svg>
+            <h1 class="font-semibold text-lg">MetaStream Live</h1>
+        </div>
+    </header>
+
+    <main class="flex flex-col items-center w-full max-w-5xl p-6">
+        <div class="w-full bg-white shadow-md rounded-2xl overflow-hidden mb-6">
+            <div class="aspect-video bg-brand-dark flex items-center justify-center text-white text-lg">Live Stream
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-md p-6 w-full max-w-2xl">
+            <h2 class="text-xl font-semibold mb-4">Live Chat</h2>
+            <div class="space-y-3 overflow-y-auto max-h-64 border border-gray-100 p-4 rounded-lg mb-4">
+                <p><strong>Sarah:</strong> Amazing setup!</p>
+                <p><strong>Alex:</strong> Can you show the studio gear?</p>
+                <p><strong>David:</strong> Quality’s clean 🔥</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <input type="text" placeholder="Send a message..." class="input flex-1" />
+                <button class="btn-primary px-5">Send</button>
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>
