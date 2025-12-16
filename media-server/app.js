@@ -1,14 +1,17 @@
 const NodeMediaServer = require('node-media-server');
 const { execSync } = require('child_process');
 const fs = require('fs');
+const path = require('path'); // Import path module for absolute paths
 
-// 1. Ensure 'media' folder exists
-const mediaFolder = './media';
-if (!fs.existsSync(mediaFolder)) {
-  fs.mkdirSync(mediaFolder);
+// 1. Resolve absolute path for media storage
+// This guarantees we know EXACTLY where files land
+const mediaRoot = path.join(__dirname, 'media');
+
+if (!fs.existsSync(mediaRoot)) {
+  fs.mkdirSync(mediaRoot);
 }
 
-// 2. Find FFmpeg
+// 2. Find FFmpeg path dynamically
 let ffmpegPath;
 try {
   ffmpegPath = execSync('which ffmpeg').toString().trim();
@@ -29,13 +32,17 @@ const config = {
   http: {
     port: 8000,
     allow_origin: '*',
-    mediaroot: './media', // Explicit path
+    mediaroot: mediaRoot, // Use Absolute Path
   },
   trans: {
     ffmpeg: ffmpegPath,
     tasks: [
       {
         app: 'live',
+        // CRITICAL: Force COPY mode. Do not transcode.
+        // This is the #1 fix for empty directories.
+        vc: 'copy',
+        ac: 'copy',
         hls: true,
         hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]',
         dash: true,
@@ -49,4 +56,4 @@ var nms = new NodeMediaServer(config);
 nms.run();
 
 console.log("🚀 MetaStream Media Server is running!");
-console.log("👉 HLS Path: " + __dirname + "/media/live/stream/index.m3u8");
+console.log(`👉 HLS Path: ${path.join(mediaRoot, 'live/stream/index.m3u8')}`);
