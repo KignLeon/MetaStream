@@ -1,165 +1,184 @@
-const NodeMediaServer = require('node-media-server');
+const { spawn } = require('child_process');
 const { execSync } = require('child_process');
+const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const cors = require('cors');
 
 // ============================================
-// FORENSIC CONFIGURATION - PROVEN ON MACOS
+// FFMPEG-ONLY RTMP → HLS PIPELINE
+// Zero dependencies on buggy libraries
 // ============================================
 
+const RTMP_PORT = 1935;
+const HTTP_PORT = 8000;
 const mediaRoot = path.join(__dirname, 'media');
+
+// Ensure media directory exists
 if (!fs.existsSync(mediaRoot)) {
   fs.mkdirSync(mediaRoot, { recursive: true });
 }
 
-// CRITICAL: Get FFmpeg path and verify it's executable
+// Verify FFmpeg
 let ffmpegPath;
 try {
   ffmpegPath = execSync('which ffmpeg').toString().trim();
   console.log(`✅ FFmpeg found: ${ffmpegPath}`);
-  
-  // Verify it's actually executable
   execSync(`${ffmpegPath} -version`, { stdio: 'pipe' });
-  console.log(`✅ FFmpeg is executable`);
 } catch (e) {
-  console.error("❌ FFmpeg not found or not executable!");
-  console.error("Run: brew install ffmpeg");
+  console.error("❌ FFmpeg not found! Run: brew install ffmpeg");
   process.exit(1);
 }
 
-const config = {
-  rtmp: {
-    port: 1935,
-    chunk_size: 60000,
-    gop_cache: true,
-    ping: 30,
-    ping_timeout: 60
-  },
-  http: {
-    port: 8000,
-    allow_origin: '*',
-    mediaroot: mediaRoot
-  },
-  trans: {
-    ffmpeg: ffmpegPath,
-    tasks: [
-      {
-        // CRITICAL: This must match your RTMP app name
-        // OBS pushes to: rtmp://localhost/live/stream
-        // So app = 'live', stream key = 'stream'
-        app: 'live',
-        
-        // CRITICAL: Specify the stream key pattern
-        // Use '*' to match any stream key under /live/*
-        // Or use 'stream' to match only /live/stream
-        stream: 'stream',
-        
-        // Force copy mode (no transcoding)
-        vc: 'copy',
-        ac: 'copy',
-        
-        // Enable HLS output
-        hls: true,
-        hlsFlags: '[hls_time=2:hls_list_size=3:hls_flags=delete_segments]'
-      }
-    ]
-  },
-  
-  // CRITICAL: Enable verbose logging
-  logType: 3 // 0: error, 1: normal, 2: debug, 3: ffdebug
-};
-
 // ============================================
-// FORENSIC HOOKS - FORCE VISIBILITY
+// FFMPEG RTMP SERVER WITH HLS OUTPUT
 // ============================================
 
-const nms = new NodeMediaServer(config);
+let ffmpegProcess = null;
 
-// Hook into session events
-nms.on('preConnect', (id, args) => {
-  console.log('[FORENSIC] RTMP connection attempt:', {
-    id,
-    app: args.app,
-    streamKey: args.streamKey || args.name
-  });
-});
-
-nms.on('postConnect', (id, args) => {
-  console.log('[FORENSIC] RTMP connection established:', {
-    id,
-    app: args.app,
-    streamKey: args.streamKey || args.name
-  });
-});
-
-nms.on('doneConnect', (id, args) => {
-  console.log('[FORENSIC] RTMP connection closed:', {
-    id,
-    app: args.app
-  });
-});
-
-nms.on('prePublish', (id, StreamPath, args) => {
-  console.log('[FORENSIC] Stream publish starting:', {
-    id,
-    path: StreamPath,
-    app: args.app,
-    streamKey: args.name
-  });
-});
-
-nms.on('postPublish', (id, StreamPath, args) => {
-  console.log('[FORENSIC] ✅ Stream published successfully:', {
-    id,
-    path: StreamPath,
-    expectedHLS: path.join(mediaRoot, args.app, args.name, 'index.m3u8')
-  });
+function startRTMPServer() {
+  const hlsOutputPath = path.join(mediaRoot, 'live/stream/index.m3u8');
+  const hlsDir = path.dirname(hlsOutputPath);
   
-  // FORENSIC CHECK: Verify FFmpeg was spawned
-  setTimeout(() => {
-    const hlsPath = path.join(mediaRoot, args.app, args.name, 'index.m3u8');
-    if (fs.existsSync(hlsPath)) {
-      console.log('[FORENSIC] ✅ HLS OUTPUT CONFIRMED:', hlsPath);
+  // Ensure output directory exists
+  if (!fs.existsSync(hlsDir)) {
+    fs.mkdirSync(hlsDir, { recursive: true });
+  }
+
+  console.log('\n🎬 Starting FFmpeg RTMP Server...\n');
+
+  const args = [
+    // RTMP Input (listen mode)
+    '-listen', '1',
+    '-f', 'flv',
+    '-i', `rtmp://0.0.0.0:${RTMP_PORT}/live/stream`,
+    
+    // Copy codecs (no transcoding)
+    '-c:v', 'copy',
+    '-c:a', 'copy',
+    
+    // HLS Output Settings
+    '-f', 'hls',
+    '-hls_time', '2',                    // 2-second segments
+    '-hls_list_size', '3',               // Keep 3 segments in playlist
+    '-hls_flags', 'delete_segments',     // Auto-delete old segments
+    '-hls_segment_filename', path.join(hlsDir, 'stream-%03d.ts'),
+    
+    hlsOutputPath
+  ];
+
+  console.log('📡 FFmpeg Command:');
+  console.log(`   ${ffmpegPath} ${args.join(' ')}\n`);
+
+  ffmpegProcess = spawn(ffmpegPath, args);
+
+  // Capture stdout
+  ffmpegProcess.stdout.on('data', (data) => {
+    console.log(`[FFMPEG OUT] ${data.toString().trim()}`);
+  });
+
+  // Capture stderr (FFmpeg logs to stderr by default)
+  ffmpegProcess.stderr.on('data', (data) => {
+    const output = data.toString().trim();
+    
+    // Highlight important messages
+    if (output.includes('Stream mapping:')) {
+      console.log('✅ [FFMPEG] Stream mapping detected - encoding started');
+    } else if (output.includes('Opening')) {
+      console.log(`📂 [FFMPEG] ${output}`);
+    } else if (output.includes('frame=')) {
+      // Progress updates (frame count)
+      process.stdout.write(`\r⏱️  [FFMPEG] ${output.split('\n')[0]}`);
     } else {
-      console.error('[FORENSIC] ❌ HLS OUTPUT MISSING!');
-      console.error('Expected:', hlsPath);
-      console.error('Directory contents:', fs.readdirSync(mediaRoot, { recursive: true }));
+      console.log(`[FFMPEG] ${output}`);
     }
-  }, 5000); // Wait 5 seconds for FFmpeg to start
-});
+  });
 
-nms.on('donePublish', (id, StreamPath, args) => {
-  console.log('[FORENSIC] Stream ended:', {
-    id,
-    path: StreamPath
+  // Handle process exit
+  ffmpegProcess.on('close', (code) => {
+    console.log(`\n⚠️  FFmpeg process exited with code ${code}`);
+    ffmpegProcess = null;
+  });
+
+  ffmpegProcess.on('error', (err) => {
+    console.error('❌ FFmpeg error:', err);
+  });
+
+  console.log('✅ FFmpeg RTMP server listening on port', RTMP_PORT);
+  console.log(`📺 OBS Settings:`);
+  console.log(`   Server: rtmp://localhost/live/stream`);
+  console.log(`   Stream Key: (leave blank)`);
+  console.log(`\n💡 HLS Output: http://localhost:${HTTP_PORT}/live/stream/index.m3u8\n`);
+}
+
+// ============================================
+// HTTP SERVER FOR HLS DELIVERY
+// ============================================
+
+const app = express();
+
+// Enable CORS for browser access
+app.use(cors());
+
+// Serve HLS files from media directory
+app.use(express.static(mediaRoot, {
+  setHeaders: (res, filepath) => {
+    // Set proper MIME types for HLS
+    if (filepath.endsWith('.m3u8')) {
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    } else if (filepath.endsWith('.ts')) {
+      res.setHeader('Content-Type', 'video/mp2t');
+    }
+    // Disable caching for live streams
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+}));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const hlsPath = path.join(mediaRoot, 'live/stream/index.m3u8');
+  const isStreaming = fs.existsSync(hlsPath);
+  
+  res.json({
+    status: 'ok',
+    ffmpeg: ffmpegProcess ? 'running' : 'stopped',
+    streaming: isStreaming,
+    hlsPath: isStreaming ? `/live/stream/index.m3u8` : null
   });
 });
 
+app.listen(HTTP_PORT, () => {
+  console.log(`✅ HTTP server listening on http://localhost:${HTTP_PORT}`);
+  console.log(`📊 Health check: http://localhost:${HTTP_PORT}/health\n`);
+});
+
 // ============================================
-// FAIL-FAST: Verify trans module loaded
+// STARTUP
 // ============================================
 
-nms.run();
-
-console.log('\n🚀 MetaStream Media Server - FORENSIC MODE');
+console.log('\n🚀 MetaStream FFmpeg-Only Server');
 console.log('='.repeat(50));
 console.log(`📂 Media Root: ${mediaRoot}`);
 console.log(`🎥 FFmpeg: ${ffmpegPath}`);
-console.log(`🔧 Log Level: FFDEBUG (maximum verbosity)`);
-console.log('='.repeat(50));
-console.log('\n📡 Waiting for OBS connection...');
-console.log('   OBS Settings:');
-console.log('   Server: rtmp://localhost/live');
-console.log('   Stream Key: stream');
-console.log('\n💡 Expected HLS Output:');
-console.log(`   ${path.join(mediaRoot, 'live/stream/index.m3u8')}`);
-console.log('='.repeat(50));
+console.log(`🔌 RTMP Port: ${RTMP_PORT}`);
+console.log(`🌐 HTTP Port: ${HTTP_PORT}`);
+console.log('='.repeat(50) + '\n');
 
-// Verify trans module is active
-setTimeout(() => {
-  if (nms.nms && nms.nms.trans) {
-    console.log('[FORENSIC] ✅ Trans module loaded');
-  } else {
-    console.error('[FORENSIC] ❌ Trans module NOT loaded - check Node Media Server version!');
+startRTMPServer();
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n\n🛑 Shutting down...');
+  if (ffmpegProcess) {
+    ffmpegProcess.kill('SIGTERM');
   }
-}, 1000);
+  process.exit(0);
+});
+
+// Auto-restart FFmpeg if it crashes
+setInterval(() => {
+  if (!ffmpegProcess || ffmpegProcess.exitCode !== null) {
+    console.log('\n⚠️  FFmpeg not running, restarting...');
+    startRTMPServer();
+  }
+}, 5000); // Check every 5 seconds
