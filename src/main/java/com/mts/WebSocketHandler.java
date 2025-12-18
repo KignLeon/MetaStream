@@ -15,7 +15,7 @@ public class WebSocketHandler {
 
     @OnWebSocketConnect
     public void onConnect(Session session) {
-        System.out.println("📡 WS Connected: " + session.getRemoteAddress().getAddress());
+        System.out.println("📡 WebSocket Connected: " + session.getRemoteAddress().getAddress());
         sessions.put(session, "Anonymous");
         try {
             JsonObject welcome = new JsonObject();
@@ -36,24 +36,24 @@ public class WebSocketHandler {
             if (message == null || message.trim().isEmpty()) return;
             JsonObject json = gson.fromJson(message, JsonObject.class);
             
-            if (json.has("type") && "chat".equals(json.get("type").getAsString())) {
+            if (json != null && json.has("type") && "chat".equals(json.get("type").getAsString())) {
                 String author = json.has("author") ? json.get("author").getAsString() : "Viewer";
                 String text = json.has("text") ? json.get("text").getAsString() : "";
 
                 if (!text.isEmpty()) {
-                    // Update counter
+                    // Update the active session counter
                     StreamSession active = Main.getActiveSession();
                     if (active != null) active.incrementMessages();
 
-                    // LO8: Logging
+                    // LO8: Log to File
                     fileLogger.logChat(author, text);
                     
-                    // Broadcast
+                    // Broadcast back to all clients
                     broadcast(message);
                 }
             }
         } catch (Throwable t) {
-            System.err.println("⚠️ WS Error: " + t.getMessage());
+            System.err.println("⚠️ WS Processing error: " + t.getMessage());
         }
     }
 

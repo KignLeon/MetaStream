@@ -9,41 +9,40 @@
 <body class="bg-gray-100 min-h-screen">
     <nav class="bg-white shadow p-4 flex justify-between items-center">
         <h1 class="text-xl font-bold">MetaStream <span class="text-blue-500">Live</span></h1>
-        <button onclick="stopStream()" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Stop Stream</button>
+        <button onclick="stopStream()" class="bg-red-500 text-white px-4 py-2 rounded font-bold hover:bg-red-600 transition">Stop Stream</button>
     </nav>
 
     <div class="max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6">
         <div class="col-span-8">
-            <div class="bg-black rounded-lg shadow-2xl aspect-video overflow-hidden border border-gray-200">
-                <video id="videoPlayer" class="w-full h-full" controls autoplay></video>
+            <div class="bg-black rounded-lg shadow aspect-video overflow-hidden border">
+                <video id="videoPlayer" class="w-full h-full" controls autoplay muted></video>
             </div>
-            <div class="grid grid-cols-2 gap-4 mt-4 text-center">
-                <div class="bg-white p-4 rounded shadow border border-gray-100">
-                    <p class="text-gray-500 text-xs uppercase tracking-widest font-bold">Duration</p>
-                    <p id="timer" class="text-2xl font-mono">00:00:00</p>
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <div class="bg-white p-4 rounded shadow border text-center">
+                    <p class="text-gray-500 text-sm font-bold uppercase tracking-widest">Duration</p>
+                    <p id="timer" class="text-xl font-mono">00:00:00</p>
                 </div>
-                <div class="bg-white p-4 rounded shadow border border-gray-100">
-                    <p class="text-gray-500 text-xs uppercase tracking-widest font-bold">Messages</p>
-                    <p id="msgCount" class="text-2xl font-bold">0</p>
+                <div class="bg-white p-4 rounded shadow border text-center">
+                    <p class="text-gray-500 text-sm font-bold uppercase tracking-widest">Messages</p>
+                    <p id="msgCount" class="text-xl font-bold">0</p>
                 </div>
             </div>
         </div>
 
-        <div class="col-span-4 bg-white rounded-lg shadow border border-gray-200 flex flex-col h-[650px]">
-            <div class="p-4 border-b font-bold bg-gray-50 text-gray-700">Live Chat</div>
+        <div class="col-span-4 bg-white rounded-lg shadow border flex flex-col h-[600px]">
+            <div class="p-4 border-b font-bold text-gray-700 bg-gray-50">Live Chat</div>
             <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 text-sm"></div>
-            <form id="chatForm" class="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
-                <input type="text" id="chatInput" class="flex-1 border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Type message...">
-                <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Send</button>
+            <form id="chatForm" class="p-4 border-t bg-gray-50 flex gap-2">
+                <input type="text" id="chatInput" class="flex-1 border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Type a message...">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Send</button>
             </form>
         </div>
     </div>
-
     <script>
         let ws, username, messageCount = 0, startTime = Date.now();
         
         async function init() {
-            // FIXED: Synchronized endpoint name
+            // FIXED: Standardized endpoint name
             const res = await fetch('/api/stream/session');
             if (res.ok) {
                 const data = await res.json();
@@ -57,10 +56,9 @@
 
         function setupVideo() {
             const video = document.getElementById('videoPlayer');
-            const hlsUrl = 'http://localhost:8000/live/stream/index.m3u8';
             if (Hls.isSupported()) {
                 const hls = new Hls();
-                hls.loadSource(hlsUrl);
+                hls.loadSource('http://localhost:8000/live/stream/index.m3u8');
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             }
@@ -72,8 +70,8 @@
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'chat') {
                     const div = document.createElement('div');
-                    div.className = "p-2 bg-gray-50 rounded-lg border border-gray-100";
-                    div.innerHTML = `<span class="font-bold text-blue-600">${msg.author}:</span> <span class="text-gray-700">${msg.text}</span>`;
+                    div.className = "p-2 bg-gray-100 rounded border border-gray-200";
+                    div.innerHTML = `<span class="font-bold text-blue-600">${msg.author}:</span> ${msg.text}`;
                     const container = document.getElementById('chatMessages');
                     container.appendChild(div);
                     container.scrollTop = container.scrollHeight;
@@ -88,14 +86,14 @@
             e.preventDefault();
             const input = document.getElementById('chatInput');
             if (input.value.trim() && ws.readyState === 1) {
-                ws.send(JSON.stringify({type:'chat', author: username, text: input.value.trim()}));
+                ws.send(JSON.stringify({ type:'chat', author: username, text: input.value.trim() }));
                 input.value = '';
             }
         };
 
         async function stopStream() {
-            if (confirm("End this stream and see results?")) {
-                await fetch('/api/stream/stop', {method:'POST'});
+            if (confirm("End this live stream?")) {
+                await fetch('/api/stream/stop', { method: 'POST' });
                 window.location.href = 'summary.html';
             }
         }

@@ -11,7 +11,7 @@ import java.util.Map;
 public class Main {
     private static final Gson gson = new Gson();
     private static StreamSession activeSession = null;
-    private static StreamSession lastSession = null; // DEMO FIX: Stats persistence
+    private static StreamSession lastSession = null; // Persistence for Summary Page
 
     public static void main(String[] args) {
         port(8080);
@@ -19,15 +19,6 @@ public class Main {
 
         // Register WebSocket BEFORE routes
         webSocket("/ws", WebSocketHandler.class);
-
-        // API: Health Check
-        get("/api/health", (req, res) -> {
-            res.type("application/json");
-            Map<String, Object> health = new HashMap<>();
-            health.put("status", "ok");
-            health.put("sessionActive", activeSession != null);
-            return gson.toJson(health);
-        });
 
         // API: Start Stream
         post("/api/stream/start", (req, res) -> {
@@ -40,14 +31,8 @@ public class Main {
             }
 
             try {
-                String bodyStr = req.body();
-                if (bodyStr == null || bodyStr.isEmpty()) {
-                    res.status(400);
-                    return gson.toJson("Missing JSON body");
-                }
-                
-                JsonObject body = gson.fromJson(bodyStr, JsonObject.class);
-                String username = body.has("username") ? body.get("username").getAsString() : "Streamer";
+                JsonObject body = gson.fromJson(req.body(), JsonObject.class);
+                String username = (body != null && body.has("username")) ? body.get("username").getAsString() : "Streamer";
                 
                 activeSession = new StreamSession(new User(username));
                 System.out.println("🎬 Stream started for: " + username);
@@ -55,12 +40,12 @@ public class Main {
                 return gson.toJson(activeSession);
             } catch (Exception e) {
                 res.status(400);
-                return gson.toJson("Invalid Request Format");
+                return gson.toJson("Invalid Request");
             }
         });
 
         // API: Get Active Session (CRITICAL SYNC)
-        get("/api/stream/active", (req, res) -> {
+        get("/api/stream/session", (req, res) -> {
             res.type("application/json");
             if (activeSession == null) {
                 res.status(404);
@@ -79,7 +64,7 @@ public class Main {
             return gson.toJson(lastSession);
         });
 
-        // API: Stop Stream
+        // API: Stop Stream / Reset System
         post("/api/stream/stop", (req, res) -> {
             res.type("application/json");
             if (activeSession != null) {
@@ -93,17 +78,18 @@ public class Main {
                 System.out.println("🛑 Stream stopped.");
                 return gson.toJson("Stopped");
             }
-            activeSession = null; // Clean up ghost session
+            activeSession = null; // Hard reset ghost sessions
             return gson.toJson("Reset");
         });
 
-        // Serve Log File
-        get("/stream_log.txt", (req, res) -> {
+        // API: Serve the log file for downloading
+        get("/download/log", (req, res) -> {
             res.type("text/plain");
+            res.header("Content-Disposition", "attachment; filename=stream_log.txt");
             try {
                 return Files.readString(Paths.get("stream_log.txt"));
             } catch (Exception e) {
-                return "No logs yet.";
+                return "No logs available.";
             }
         });
 
