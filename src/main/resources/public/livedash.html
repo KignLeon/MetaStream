@@ -173,6 +173,8 @@
                     updateMessageCount();
                 } else if (data.type === 'viewers') {
                     document.getElementById('viewerCount').textContent = data.count;
+                } else if (data.type === 'system') {
+                    console.log('System message:', data.event, data.data);
                 }
             };
 
@@ -258,7 +260,6 @@
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById('viewerCount').textContent = data.viewers || 0;
-                    updateMessageCount();
                 }
             } catch (err) {
                 console.error('Stats failed:', err);
@@ -291,6 +292,9 @@
 
             const msgDiv = document.createElement('div');
             msgDiv.className = 'p-2 hover:bg-gray-50 rounded';
+
+            const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+
             msgDiv.innerHTML = `
                 <div class="flex items-start gap-2">
                     <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
@@ -299,7 +303,7 @@
                     <div class="flex-1">
                         <div class="flex items-baseline gap-2">
                             <span class="font-semibold text-sm text-gray-700">${author}</span>
-                            <span class="text-xs text-gray-400">${new Date(timestamp).toLocaleTimeString()}</span>
+                            <span class="text-xs text-gray-400">${time}</span>
                         </div>
                         <p class="text-sm text-gray-600 mt-0.5">${text}</p>
                     </div>
@@ -315,13 +319,21 @@
             const text = input.value.trim();
             if (!text || !sessionData) return;
 
+            console.log('Sending message:', text);
+
+            // Send via WebSocket
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
+                const message = {
                     type: 'chat',
                     author: sessionData.username,
                     text: text
-                }));
+                };
+                console.log('Sending WS message:', message);
+                ws.send(JSON.stringify(message));
                 input.value = '';
+            } else {
+                console.error('WebSocket not connected');
+                alert('Chat not connected. Please refresh the page.');
             }
         }
 
