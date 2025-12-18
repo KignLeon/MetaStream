@@ -1,178 +1,294 @@
 package com.mts;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+
 import static spark.Spark.*;
 
+/**
+ * LO1: OOP Principles - Modular class design LO6: GUI & Events - HTTP endpoints
+ * triggered by frontend events LO7: Exception Handling - Try/catch in all
+ * routes
+ */
 public class Main {
-    private static final int PORT = 8080;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     private static final Gson gson = new Gson();
-    
-    // Public static to allow access from WebSocketHandler
-    public static StreamSession activeSession = null;
+    private static StreamSession activeSession;
+    private static final FileLogger fileLogger = new FileLogger();
 
     public static void main(String[] args) {
-        port(PORT);
+
+        // Server configuration
+        port(getAssignedPort());
         staticFiles.location("/public");
-        
-        // Initialize WebSocket BEFORE routes/init
+
+        // WebSocket for real-time chat (LO6: Event-driven)
         webSocket("/ws", WebSocketHandler.class);
-        
-        init();
 
-        // Health Check Log
-        if (MediaServerClient.checkHealth()) {
-            System.out.println("✅ FFmpeg media server is running");
-        } else {
-            System.err.println("⚠️ FFmpeg media server NOT detected on port 8000");
-        }
-
-        // CORS Headers
+        // CORS
         before((request, response) -> {
             response.header("Access-Control-Allow-Origin", "*");
             response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
             response.header("Access-Control-Allow-Headers", "Content-Type");
         });
 
-        // 1. Health Endpoint
-        get("/api/health", (req, res) -> {
-            res.type("application/json");
-            JsonObject status = new JsonObject();
-            status.addProperty("backend", "ok");
-            status.addProperty("mediaServer", MediaServerClient.checkHealth());
-            status.addProperty("activeSession", activeSession != null && activeSession.isActive());
-            status.addProperty("websocketConnections", WebSocketHandler.getConnectionCount());
-            return status;
-        }, gson::toJson);
+        init();
 
-        // 2. Start Stream Endpoint
+        LOGGER.info("🌐 MetaStream Live Backend starting on port {}", getAssignedPort());
+
+        if (MediaServerClient.isMediaServerHealthy()) {
+            LOGGER.info("✅ FFmpeg media server is running");
+        } else {
+            LOGGER.warn("⚠️ FFmpeg media server not detected");
+        }
+
+        // Routes
+        get("/", (req, res) -> {
+            res.redirect("/index.html");
+            return null;
+        });
+
+        /**
+         * LO7: Exception Handling - Try/catch for API errors LO3: Aggregation -
+         * User aggregated into StreamSession
+         */
         post("/api/stream/start", (req, res) -> {
             res.type("application/json");
-            
-            if (!MediaServerClient.checkHealth()) {
-                res.status(503);
-                return new ErrorResponse("Media server unavailable. Start FFmpeg server first.");
-            }
-
-            if (activeSession != null && activeSession.isActive()) {
-                res.status(409);
-                return new ErrorResponse("A stream is already active. Stop it first.");
-            }
 
             try {
-                User user = gson.fromJson(req.body(), User.class);
-                if (user == null || user.getUsername() == null || user.getUsername().isEmpty()) {
-                    res.status(400);
-                    return new ErrorResponse("Username is required");
+                if (!MediaServerClient.isMediaServerHealthy()) {
+                    res.status(503);
+                    return errorResponse("Media server unavailable");
                 }
 
-                // FIXED: Manual construction using Strings
-                String ingestUrl = "rtmp://localhost/live/stream";
-                String playbackUrl = "http://localhost:8000/live/stream/index.m3u8";
+                if (activeSession != null && activeSession.isActive()) {
+                    res.status(409);
+                    return errorResponse("A stream is already active");
+                }
 
-                // Correct constructor call matching StreamSession.java
-                activeSession = new StreamSession(user.getUsername(), ingestUrl, playbackUrl);
-                
-                System.out.println("🎬 Stream started for " + activeSession.getUsername());
+                JsonObject data = gson.fromJson(req.body(), JsonObject.class);
+                if (data == null || !data.has("username")) {
+                    res.status(400);
+                    return errorResponse("Missing username");
+                }
 
-                // Set session for logging and notify clients
+                String username = data.get("username").getAsString();
+                boolean ttsEnabled = data.has("ttsEnabled") && data.get("ttsEnabled").getAsBoolean();
+
+                // LO1: Encapsulation - Using constructor and setters
+                User user = new User(username);
+                user.setPreferences(ttsEnabled);
+
+                // LO3: Aggregation - StreamSession contains User
+                activeSession = new StreamSession(user);
+                activeSession.startSession();
+
+                // Register with WebSocket handler
                 WebSocketHandler.setActiveStreamSession(activeSession);
-                WebSocketHandler.broadcastStreamStatus("live", "00:00:00");
+                WebSocketHandler.broadcastStreamStatus("started", username + " went live");
 
-                return activeSession;
+                LOGGER.info("🎬 Stream started by {}", username);
 
+                JsonObject response = new JsonObject();
+                response.addProperty("status", "success");
+                response.addProperty("sessionId", activeSession.getSessionId());
+                response.addProperty("rtmpUrl", activeSession.getRtmpIngestUrl());
+                response.addProperty("hlsUrl", activeSession.getHlsPlaybackUrl());
+                response.addProperty("message", "Stream session created");
+
+                return gson.toJson(response);
+
+            } catch (JsonSyntaxException e) {
+                // LO7: Exception Handling
+                LOGGER.error("Invalid JSON", e);
+                res.status(400);
+                return errorResponse("Invalid JSON format");
             } catch (Exception e) {
-                e.printStackTrace();
+                // LO7: Exception Handling
+                LOGGER.error("Error starting stream", e);
                 res.status(500);
-                return new ErrorResponse("Failed to start stream: " + e.getMessage());
-            }
-        }, gson::toJson);
-
-        // 3. Active Stream Status
-        get("/api/stream/active", (req, res) -> {
-            res.type("application/json");
-            if (activeSession != null && activeSession.isActive()) {
-                JsonObject json = new JsonObject();
-                json.addProperty("status", "active");
-                json.addProperty("sessionId", activeSession.getSessionId());
-                json.addProperty("username", activeSession.getUsername());
-                json.addProperty("rtmpUrl", activeSession.getIngestUrl());
-                json.addProperty("hlsUrl", activeSession.getPlaybackUrl());
-                json.addProperty("duration", activeSession.getDuration());
-                json.addProperty("messages", activeSession.getChatMessages().size());
-                json.addProperty("isLive", activeSession.isActive()); 
-                json.addProperty("viewers", WebSocketHandler.getConnectionCount());
-                return json;
-            } else {
-                res.status(404);
-                return new ErrorResponse("No active stream");
+                return errorResponse("Internal server error: " + e.getMessage());
             }
         });
 
-        // 4. Stop Stream
+        get("/api/stream/active", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null || !activeSession.isActive()) {
+                res.status(404);
+                return errorResponse("No active stream");
+            }
+
+            JsonObject response = new JsonObject();
+            response.addProperty("status", "active");
+            response.addProperty("sessionId", activeSession.getSessionId());
+            response.addProperty("username", activeSession.getUser().getUsername());
+            response.addProperty("rtmpUrl", activeSession.getRtmpIngestUrl());
+            response.addProperty("hlsUrl", activeSession.getHlsPlaybackUrl());
+            response.addProperty("startedAt", activeSession.getStartedAt().toString());
+            response.addProperty("duration", activeSession.getDuration());
+            response.addProperty("messages", activeSession.getTotalMessages());
+            response.addProperty("isLive", activeSession.isStreamingLive());
+            response.addProperty("viewers", WebSocketHandler.getConnectionCount());
+
+            return gson.toJson(response);
+        });
+
+        /**
+         * LO8: Text File I/O - Writes session log to disk
+         */
         post("/api/stream/stop", (req, res) -> {
             res.type("application/json");
-            if (activeSession != null && activeSession.isActive()) {
-                activeSession.stop();
-                FileLogger.logSession(activeSession);
-                WebSocketHandler.broadcastStreamStatus("offline", activeSession.getDuration());
-                System.out.println("🛑 Stream ended for " + activeSession.getUsername());
-                return new SuccessResponse("Stream stopped", activeSession);
-            }
-            res.status(404);
-            return new ErrorResponse("No active stream to stop");
-        }, gson::toJson);
-        
-        // 5. Chat Fallback
-        post("/api/chat", (req, res) -> {
-            res.type("application/json");
+
             if (activeSession == null || !activeSession.isActive()) {
                 res.status(400);
-                return new ErrorResponse("No active stream");
+                return errorResponse("No active stream to stop");
             }
-            try {
-                ChatMessage msg = gson.fromJson(req.body(), ChatMessage.class);
-                activeSession.addChatMessage(msg);
-                
-                JsonObject chatJson = new JsonObject();
-                chatJson.addProperty("type", "chat");
-                chatJson.addProperty("author", msg.getAuthor());
-                chatJson.addProperty("text", msg.getText());
-                WebSocketHandler.broadcastToAll(chatJson.toString());
-                
-                return new SuccessResponse("Message sent", null);
-            } catch (Exception e) {
-                res.status(400);
-                return new ErrorResponse("Invalid message format");
-            }
-        }, gson::toJson);
-        
-        // 6. Chat History
-        get("/api/chat/history", (req, res) -> {
-            res.type("application/json");
-            if (activeSession != null) {
-                return activeSession.getChatMessages();
-            }
-            return new java.util.ArrayList<>();
-        }, gson::toJson);
 
-        System.out.println("✅ MetaStream Live Backend ready at http://localhost:" + PORT);
-        System.out.println("🔌 WebSocket endpoint: ws://localhost:" + PORT + "/ws");
-        
+            try {
+                String username = activeSession.getUser().getUsername();
+                String duration = activeSession.getDuration();
+                int messages = activeSession.getTotalMessages();
+
+                activeSession.stopSession();
+
+                // LO8: Text File I/O - Write log to file
+                try {
+                    fileLogger.writeLog(activeSession);
+                    LOGGER.info("📝 Session log written to file");
+                } catch (Exception e) {
+                    LOGGER.error("Failed to write log file", e);
+                }
+
+                WebSocketHandler.broadcastStreamStatus("ended", username + " ended the stream");
+
+                LOGGER.info("🛑 Stream stopped for {} - Duration: {}, Messages: {}",
+                        username, duration, messages);
+
+                JsonObject response = new JsonObject();
+                response.addProperty("status", "success");
+                response.addProperty("message", "Stream ended successfully");
+                response.addProperty("duration", duration);
+                response.addProperty("totalMessages", messages);
+                response.addProperty("peakViewers", activeSession.getPeakViewerCount());
+                response.addProperty("notificationsSent", activeSession.getNotificationsSent());
+
+                return gson.toJson(response);
+
+            } catch (Exception e) {
+                LOGGER.error("Error stopping stream", e);
+                res.status(500);
+                return errorResponse("Failed to stop stream: " + e.getMessage());
+            }
+        });
+
+        /**
+         * LO2: Arrays - Messages stored in ArrayList LO5: Generic Collections -
+         * ArrayList<ChatMessage>
+         */
+        post("/api/chat/send", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null || !activeSession.isActive()) {
+                res.status(400);
+                return errorResponse("No active stream");
+            }
+
+            try {
+                JsonObject data = gson.fromJson(req.body(), JsonObject.class);
+                if (!data.has("author") || !data.has("text")) {
+                    res.status(400);
+                    return errorResponse("Missing author or text");
+                }
+
+                String author = data.get("author").getAsString();
+                String text = data.get("text").getAsString();
+
+                // LO2 & LO5: Add to ArrayList<ChatMessage>
+                ChatMessage message = new ChatMessage(author, text);
+                activeSession.addMessage(message);
+
+                // Broadcast via WebSocket
+                JsonObject broadcast = new JsonObject();
+                broadcast.addProperty("type", "chat");
+                broadcast.addProperty("author", author);
+                broadcast.addProperty("text", text);
+                broadcast.addProperty("timestamp", message.getTimestamp().toString());
+                WebSocketHandler.broadcastToAll(broadcast.toString());
+
+                LOGGER.info("[CHAT] {}: {}", author, text);
+
+                JsonObject response = new JsonObject();
+                response.addProperty("status", "success");
+                response.addProperty("message", "Message sent");
+
+                return gson.toJson(response);
+
+            } catch (JsonSyntaxException e) {
+                LOGGER.error("Invalid message format", e);
+                res.status(400);
+                return errorResponse("Invalid message format");
+            }
+        });
+
+        /**
+         * LO2: Arrays - Returns ArrayList LO5: Generic Collections -
+         * ArrayList<ChatMessage>
+         */
+        get("/api/chat/messages", (req, res) -> {
+            res.type("application/json");
+
+            if (activeSession == null) {
+                return "[]";
+            }
+
+            // LO2 & LO5: Return ArrayList as JSON
+            return gson.toJson(activeSession.getMessages());
+        });
+
+        /**
+         * LO8: Text File I/O - Reads log file
+         */
+        get("/api/logs", (req, res) -> {
+            res.type("text/plain");
+            try {
+                return fileLogger.readLog();
+            } catch (Exception e) {
+                LOGGER.error("Error reading log", e);
+                return "Error reading log file";
+            }
+        });
+
+        get("/api/health", (req, res) -> {
+            res.type("application/json");
+
+            JsonObject health = new JsonObject();
+            health.addProperty("backend", "ok");
+            health.addProperty("mediaServer", MediaServerClient.isMediaServerHealthy());
+            health.addProperty("activeSession", activeSession != null && activeSession.isActive());
+            health.addProperty("websocketConnections", WebSocketHandler.getConnectionCount());
+
+            return gson.toJson(health);
+        });
+
         awaitInitialization();
+        LOGGER.info("✅ MetaStream Live Backend ready at http://localhost:{}", getAssignedPort());
+        LOGGER.info("🔌 WebSocket endpoint: ws://localhost:{}/ws", getAssignedPort());
     }
-    
-    static class ErrorResponse {
-        String error;
-        public ErrorResponse(String error) { this.error = error; }
+
+    private static int getAssignedPort() {
+        String port = System.getenv("PORT");
+        return port != null ? Integer.parseInt(port) : 8080;
     }
-    
-    static class SuccessResponse {
-        String message;
-        Object data;
-        public SuccessResponse(String message, Object data) {
-            this.message = message;
-            this.data = data;
-        }
+
+    private static String errorResponse(String message) {
+        JsonObject error = new JsonObject();
+        error.addProperty("status", "error");
+        error.addProperty("message", message);
+        return gson.toJson(error);
     }
 }

@@ -1,32 +1,29 @@
 package com.mts;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-
 /**
- * Client for communicating with the FFmpeg media server.
+ * LO7: Exception Handling - Try/catch for HTTP requests
  */
 public class MediaServerClient {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MediaServerClient.class);
     private static final String MEDIA_SERVER_URL = "http://localhost:8000";
     private static final Gson gson = new Gson();
     private static final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    /**
-     * Check if the FFmpeg media server is running and healthy. FIXED: Renamed
-     * from isMediaServerHealthy() to checkHealth() to match Main.java
-     *
-     * @return true if server is reachable and operational
-     */
-    public static boolean checkHealth() {
+    public static boolean isMediaServerHealthy() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(MEDIA_SERVER_URL + "/health"))
@@ -39,25 +36,17 @@ public class MediaServerClient {
             if (response.statusCode() == 200) {
                 JsonObject health = gson.fromJson(response.body(), JsonObject.class);
                 String status = health.get("status").getAsString();
-                System.out.println("✅ Media server health: " + status);
                 return "ok".equals(status);
             }
-
-            System.out.println("⚠️ Media server returned status code: " + response.statusCode());
             return false;
 
         } catch (Exception e) {
-            System.err.println("❌ Media server health check failed: " + e.getMessage());
+            // LO7: Exception Handling
+            LOGGER.debug("Media server not reachable: {}", e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Check if a specific stream is currently active.
-     *
-     * @param streamKey the stream identifier (e.g., "stream")
-     * @return true if HLS files exist for this stream
-     */
     public static boolean isStreamActive(String streamKey) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -71,12 +60,18 @@ public class MediaServerClient {
                 JsonObject health = gson.fromJson(response.body(), JsonObject.class);
                 return health.has("streaming") && health.get("streaming").getAsBoolean();
             }
-
             return false;
 
         } catch (Exception e) {
-            System.err.println("❌ Stream status check failed: " + e.getMessage());
             return false;
         }
+    }
+
+    public static String getHLSUrl(String streamKey) {
+        return String.format("%s/live/%s/index.m3u8", MEDIA_SERVER_URL, streamKey);
+    }
+
+    public static String getRecommendedRTMPUrl() {
+        return "rtmp://localhost/live/stream";
     }
 }

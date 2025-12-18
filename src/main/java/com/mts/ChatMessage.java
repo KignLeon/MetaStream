@@ -2,7 +2,12 @@ package com.mts;
 
 import java.time.LocalDateTime;
 
+/**
+ * LO1: OOP Principles - Simple encapsulated class LO2: Arrays - Stored in
+ * ArrayList<ChatMessage>
+ */
 public class ChatMessage {
+
     private final String author;
     private final String text;
     private final LocalDateTime timestamp;

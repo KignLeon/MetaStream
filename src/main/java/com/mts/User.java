@@ -1,17 +1,14 @@
 package com.mts;
 
 /**
- * User class represents a streamer or viewer participating in a MetaStream Live
- * session. Stores user identity, communication preferences, and RTMP stream
- * configuration data.
+ * LO1: OOP Principles - Encapsulation via private fields with getters/setters
+ * LO3: Classes & Aggregation - User is aggregated into StreamSession
  */
 public class User {
 
     private final String username;
     private String phone;
     private boolean ttsEnabled;
-
-    // ✅ New fields for Instagram or other RTMP-based live streaming
     private String rtmpUrl;
     private String streamKey;
 
@@ -19,11 +16,12 @@ public class User {
         this.username = username;
     }
 
-    // ---------- Getters and Setters ----------
+    // LO1: Encapsulation - Public getter for private field
     public String getUsername() {
         return username;
     }
 
+    // LO1: Encapsulation - Public setter for private field
     public void setPhone(String phone) {
         this.phone = phone;
     }
@@ -40,7 +38,6 @@ public class User {
         this.ttsEnabled = ttsEnabled;
     }
 
-    // --- RTMP Configuration ---
     public String getRtmpUrl() {
         return rtmpUrl;
     }
@@ -63,8 +60,6 @@ public class User {
                 + "username='" + username + '\''
                 + ", phone='" + phone + '\''
                 + ", ttsEnabled=" + ttsEnabled
-                + ", rtmpUrl='" + (rtmpUrl != null ? rtmpUrl : "N/A") + '\''
-                + ", streamKey='" + (streamKey != null ? "[HIDDEN]" : "N/A") + '\''
                 + '}';
     }
 }

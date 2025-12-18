@@ -1,10 +1,14 @@
 package com.mts;
 
+/**
+ * LO4: Inheritance & Polymorphism - Implements NotificationService interface
+ */
 public class SMSNotifier implements NotificationService {
 
     @Override
     public void sendNotification(String message) {
-        // For now, simulate Twilio SMS behavior
-        System.out.println("📱 [SMS SENT] " + message);
+        // LO4: Polymorphism - Different implementation of interface method
+        // Simulated SMS (no external API for demo)
+        System.out.println("📱 [SMS SIMULATED] " + message);
     }
 }

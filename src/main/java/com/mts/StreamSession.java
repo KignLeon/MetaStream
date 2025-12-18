@@ -1,56 +1,169 @@
 package com.mts;
 
+import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * LO1: OOP Principles - Encapsulation with private fields and public methods
+ * LO2: Arrays - ArrayList<ChatMessage> for chat history LO3: Aggregation -
+ * Contains User object and List of ChatMessage objects LO5: Generic Collections
+ * - ArrayList<ChatMessage> with type parameter
+ */
 public class StreamSession {
-    private String sessionId;
-    private String username;
-    private String ingestUrl;
-    private String playbackUrl;
-    private long startTime;
-    private long endTime;
+
+    private final String sessionId;
+    private final User user; // LO3: Aggregation
+    private final List<ChatMessage> messages; // LO2 & LO5: ArrayList<ChatMessage>
+
     private boolean active;
-    private List<ChatMessage> chatMessages;
+    private final LocalDateTime startedAt;
+    private LocalDateTime endedAt;
 
-    public StreamSession(String username, String ingestUrl, String playbackUrl) {
+    private String rtmpIngestUrl;
+    private String hlsPlaybackUrl;
+    private String streamKey;
+
+    private int peakViewerCount;
+    private int totalMessages;
+    private int notificationsSent;
+
+    public StreamSession(User user) {
         this.sessionId = UUID.randomUUID().toString();
-        this.username = username;
-        this.ingestUrl = ingestUrl;
-        this.playbackUrl = playbackUrl;
-        this.startTime = System.currentTimeMillis();
-        this.active = true;
-        this.chatMessages = new ArrayList<>();
-    }
-
-    public void stop() {
+        this.user = user;
+        this.messages = new ArrayList<>(); // LO2 & LO5: Generic ArrayList
         this.active = false;
-        this.endTime = System.currentTimeMillis();
+        this.startedAt = LocalDateTime.now();
+        this.peakViewerCount = 0;
+        this.totalMessages = 0;
+        this.notificationsSent = 0;
     }
 
-    // --- The Missing Method ---
-    public void addChatMessage(ChatMessage message) {
-        if (this.chatMessages == null) {
-            this.chatMessages = new ArrayList<>();
+    // ---------- Session Lifecycle ----------
+    public void startSession() {
+        if (active) {
+            throw new IllegalStateException("Session already active");
         }
-        this.chatMessages.add(message);
+
+        this.active = true;
+        this.streamKey = "stream";
+        this.rtmpIngestUrl = MediaServerClient.getRecommendedRTMPUrl();
+        this.hlsPlaybackUrl = MediaServerClient.getHLSUrl(streamKey);
+
+        System.out.println("🎬 Stream started for " + user.getUsername());
+        System.out.println("📡 RTMP Ingest: " + rtmpIngestUrl);
+        System.out.println("📺 HLS Playback: " + hlsPlaybackUrl);
     }
 
-    // Getters
-    public String getSessionId() { return sessionId; }
-    public String getUsername() { return username; }
-    public String getIngestUrl() { return ingestUrl; }
-    public String getPlaybackUrl() { return playbackUrl; }
-    public boolean isActive() { return active; }
-    public List<ChatMessage> getChatMessages() { return chatMessages; }
-    
+    public void stopSession() {
+        if (!active) {
+            throw new IllegalStateException("Session not active");
+        }
+
+        this.active = false;
+        this.endedAt = LocalDateTime.now();
+        System.out.println("🛑 Stream ended for " + user.getUsername());
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    // ---------- Messaging (LO2 & LO5) ----------
+    /**
+     * LO2: Arrays - Adds to ArrayList LO5: Generic Collections - Type-safe
+     * addition
+     */
+    public void addMessage(ChatMessage msg) {
+        messages.add(msg);
+        totalMessages++;
+    }
+
+    /**
+     * LO2: Arrays - Returns ArrayList LO5: Generic Collections - Returns
+     * List<ChatMessage>
+     */
+    public List<ChatMessage> getMessages() {
+        return new ArrayList<>(messages); // Return defensive copy
+    }
+
+    // ---------- Analytics ----------
+    public void updateViewerCount(int count) {
+        if (count > peakViewerCount) {
+            peakViewerCount = count;
+        }
+    }
+
+    public void incrementNotifications() {
+        notificationsSent++;
+    }
+
     public String getDuration() {
-        long end = (endTime == 0) ? System.currentTimeMillis() : endTime;
-        long diff = end - startTime;
-        long seconds = diff / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        return String.format("%02d:%02d:%02d", hours, minutes % 60, seconds % 60);
+        LocalDateTime end = endedAt != null ? endedAt : LocalDateTime.now();
+        Duration duration = Duration.between(startedAt, end);
+
+        long hours = duration.toHours();
+        long minutes = duration.toMinutesPart();
+        long seconds = duration.toSecondsPart();
+
+        return String.format("%dh %dm %ds", hours, minutes, seconds);
+    }
+
+    // ---------- Getters (LO1: Encapsulation) ----------
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public User getUser() {
+        return user; // LO3: Aggregation
+    }
+
+    public LocalDateTime getStartedAt() {
+        return startedAt;
+    }
+
+    public LocalDateTime getEndedAt() {
+        return endedAt;
+    }
+
+    public String getRtmpIngestUrl() {
+        return rtmpIngestUrl;
+    }
+
+    public String getHlsPlaybackUrl() {
+        return hlsPlaybackUrl;
+    }
+
+    public String getStreamKey() {
+        return streamKey;
+    }
+
+    public int getPeakViewerCount() {
+        return peakViewerCount;
+    }
+
+    public int getTotalMessages() {
+        return totalMessages;
+    }
+
+    public int getNotificationsSent() {
+        return notificationsSent;
+    }
+
+    public boolean isStreamingLive() {
+        return active && MediaServerClient.isStreamActive(streamKey);
+    }
+
+    @Override
+    public String toString() {
+        return "StreamSession{"
+                + "sessionId='" + sessionId + '\''
+                + ", user=" + user.getUsername()
+                + ", active=" + active
+                + ", messages=" + totalMessages
+                + ", duration=" + getDuration()
+                + '}';
     }
 }
