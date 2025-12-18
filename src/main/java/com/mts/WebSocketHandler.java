@@ -22,12 +22,15 @@ public class WebSocketHandler {
     // Store all connected clients
     private static final Set<Session> sessions = ConcurrentHashMap.newKeySet();
 
+    // Reference to active session (set by Main.java)
+    private static StreamSession activeStreamSession;
+
     @OnWebSocketConnect
     public void onConnect(Session session) {
         sessions.add(session);
         LOGGER.info("📡 WebSocket connected: {} (Total: {})", session.getRemoteAddress(), sessions.size());
 
-        // Send welcome message - FIXED: Convert JsonObject to String
+        // Send welcome message
         JsonObject welcomeMsg = createMessage("system", "connected", "Connected to MetaStream Live");
         sendToSession(session, welcomeMsg.toString());
     }
@@ -41,6 +44,8 @@ public class WebSocketHandler {
     @OnWebSocketMessage
     public void onMessage(Session session, String message) {
         try {
+            LOGGER.info("📨 Received WebSocket message: {}", message);
+
             JsonObject data = gson.fromJson(message, JsonObject.class);
             String type = data.get("type").getAsString();
 
@@ -49,7 +54,6 @@ public class WebSocketHandler {
                     handleChatMessage(data);
                     break;
                 case "ping":
-                    // FIXED: Convert JsonObject to String
                     JsonObject pongMsg = createMessage("system", "pong", "pong");
                     sendToSession(session, pongMsg.toString());
                     break;
@@ -58,33 +62,41 @@ public class WebSocketHandler {
             }
 
         } catch (Exception e) {
-            LOGGER.error("Error handling WebSocket message", e);
+            LOGGER.error("Error handling WebSocket message: {}", message, e);
         }
     }
 
     @OnWebSocketError
     public void onError(Session session, Throwable error) {
-        LOGGER.error("WebSocket error: {}", error.getMessage());
+        LOGGER.error("WebSocket error: {}", error.getMessage(), error);
     }
 
     // ---------- Message Handlers ----------
     private void handleChatMessage(JsonObject data) {
-        String author = data.get("author").getAsString();
-        String text = data.get("text").getAsString();
+        try {
+            String author = data.get("author").getAsString();
+            String text = data.get("text").getAsString();
 
-        // Create chat message
-        ChatMessage msg = new ChatMessage(author, text);
+            LOGGER.info("[CHAT] {}: {}", author, text);
 
-        // Broadcast to all connected clients
-        JsonObject broadcast = new JsonObject();
-        broadcast.addProperty("type", "chat");
-        broadcast.addProperty("author", msg.getAuthor());
-        broadcast.addProperty("text", msg.getText());
-        broadcast.addProperty("timestamp", msg.getTimestamp().toString());
+            // Store in active session if exists
+            if (activeStreamSession != null) {
+                ChatMessage msg = new ChatMessage(author, text);
+                activeStreamSession.addMessage(msg);
+            }
 
-        broadcastToAll(broadcast.toString());
+            // Broadcast to all connected clients
+            JsonObject broadcast = new JsonObject();
+            broadcast.addProperty("type", "chat");
+            broadcast.addProperty("author", author);
+            broadcast.addProperty("text", text);
+            broadcast.addProperty("timestamp", System.currentTimeMillis());
 
-        LOGGER.info("[CHAT] {}: {}", author, text);
+            broadcastToAll(broadcast.toString());
+
+        } catch (Exception e) {
+            LOGGER.error("Error handling chat message", e);
+        }
     }
 
     // ---------- Broadcast Methods ----------
@@ -92,6 +104,7 @@ public class WebSocketHandler {
      * Send message to all connected clients.
      */
     public static void broadcastToAll(String message) {
+        LOGGER.debug("Broadcasting to {} clients: {}", sessions.size(), message);
         sessions.forEach(session -> sendToSession(session, message));
     }
 
@@ -138,5 +151,13 @@ public class WebSocketHandler {
      */
     public static int getConnectionCount() {
         return sessions.size();
+    }
+
+    /**
+     * Set the active stream session (called by Main.java)
+     */
+    public static void setActiveStreamSession(StreamSession session) {
+        activeStreamSession = session;
+        LOGGER.info("Active stream session set: {}", session != null ? session.getSessionId() : "null");
     }
 }

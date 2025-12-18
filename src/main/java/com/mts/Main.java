@@ -89,6 +89,9 @@ public class Main {
                 activeSession = new StreamSession(user);
                 activeSession.startSession();
 
+                // Register session with WebSocket handler
+                WebSocketHandler.setActiveStreamSession(activeSession);
+
                 // Broadcast stream started
                 WebSocketHandler.broadcastStreamStatus("started", username + " went live");
 
