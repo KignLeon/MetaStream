@@ -2,31 +2,36 @@ package com.mts;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class FileLogger {
 
     private static final String LOG_FILE = "stream_log.txt";
 
-    public void writeLog(StreamSession session) {
-        try (FileWriter writer = new FileWriter(LOG_FILE, true)) {
-            writer.write("=== Stream Log for " + session.getUser().getUsername() + " ===\n");
-            for (ChatMessage msg : session.getMessages()) {
-                writer.write(msg.toString() + "\n");
-            }
-            writer.write("\n");
-            System.out.println("✅ Stream session logged successfully.");
-        } catch (IOException e) {
-            System.err.println("⚠️ Error writing log: " + e.getMessage());
-        }
-    }
+    public static void logSession(StreamSession session) {
+        try (PrintWriter out = new PrintWriter(new FileWriter(LOG_FILE, true))) {
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public String readLog() {
-        try {
-            return Files.readString(Paths.get(LOG_FILE));
+            out.println("=== Stream Session Logged at " + now.format(formatter) + " ===");
+            // Fixed: changed getUser() to getUsername()
+            out.println("User: " + session.getUsername());
+            out.println("Session ID: " + session.getSessionId());
+            out.println("Duration: " + session.getDuration());
+            out.println("Chat Log:");
+
+            // Fixed: changed getMessages() to getChatMessages()
+            if (session.getChatMessages() != null) {
+                for (ChatMessage msg : session.getChatMessages()) {
+                    out.println("[" + msg.getTimestamp() + "] " + msg.getAuthor() + ": " + msg.getText());
+                }
+            }
+            out.println("==================================================");
+            out.println();
         } catch (IOException e) {
-            return "⚠️ No logs found.";
+            System.err.println("Error writing to log file: " + e.getMessage());
         }
     }
 }

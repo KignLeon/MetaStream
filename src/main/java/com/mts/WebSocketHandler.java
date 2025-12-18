@@ -1,163 +1,184 @@
 package com.mts;
 
-import org.eclipse.jetty.websocket.api.*;
-import org.eclipse.jetty.websocket.api.annotations.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
-import java.util.Set;
+import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * WebSocket handler for real-time chat and stream updates.
- */
 @WebSocket
 public class WebSocketHandler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebSocketHandler.class);
+    private static final Map<Session, String> sessions = new ConcurrentHashMap<>();
     private static final Gson gson = new Gson();
-
-    // Store all connected clients
-    private static final Set<Session> sessions = ConcurrentHashMap.newKeySet();
-
-    // Reference to active session (set by Main.java)
     private static StreamSession activeStreamSession;
 
-    @OnWebSocketConnect
-    public void onConnect(Session session) {
-        sessions.add(session);
-        LOGGER.info("📡 WebSocket connected: {} (Total: {})", session.getRemoteAddress(), sessions.size());
-
-        // Send welcome message
-        JsonObject welcomeMsg = createMessage("system", "connected", "Connected to MetaStream Live");
-        sendToSession(session, welcomeMsg.toString());
-    }
-
-    @OnWebSocketClose
-    public void onClose(Session session, int statusCode, String reason) {
-        sessions.remove(session);
-        LOGGER.info("❌ WebSocket closed: {} (Total: {})", session.getRemoteAddress(), sessions.size());
-    }
-
-    @OnWebSocketMessage
-    public void onMessage(Session session, String message) {
-        try {
-            LOGGER.info("📨 Received WebSocket message: {}", message);
-
-            JsonObject data = gson.fromJson(message, JsonObject.class);
-            String type = data.get("type").getAsString();
-
-            switch (type) {
-                case "chat":
-                    handleChatMessage(data);
-                    break;
-                case "ping":
-                    JsonObject pongMsg = createMessage("system", "pong", "pong");
-                    sendToSession(session, pongMsg.toString());
-                    break;
-                default:
-                    LOGGER.warn("Unknown message type: {}", type);
-            }
-
-        } catch (Exception e) {
-            LOGGER.error("Error handling WebSocket message: {}", message, e);
-        }
-    }
-
-    @OnWebSocketError
-    public void onError(Session session, Throwable error) {
-        LOGGER.error("WebSocket error: {}", error.getMessage(), error);
-    }
-
-    // ---------- Message Handlers ----------
-    private void handleChatMessage(JsonObject data) {
-        try {
-            String author = data.get("author").getAsString();
-            String text = data.get("text").getAsString();
-
-            LOGGER.info("[CHAT] {}: {}", author, text);
-
-            // Store in active session if exists
-            if (activeStreamSession != null) {
-                ChatMessage msg = new ChatMessage(author, text);
-                activeStreamSession.addMessage(msg);
-            }
-
-            // Broadcast to all connected clients
-            JsonObject broadcast = new JsonObject();
-            broadcast.addProperty("type", "chat");
-            broadcast.addProperty("author", author);
-            broadcast.addProperty("text", text);
-            broadcast.addProperty("timestamp", System.currentTimeMillis());
-
-            broadcastToAll(broadcast.toString());
-
-        } catch (Exception e) {
-            LOGGER.error("Error handling chat message", e);
-        }
-    }
-
-    // ---------- Broadcast Methods ----------
     /**
-     * Send message to all connected clients.
+     * Sets the active stream session to allow chat logging.
+     * Called by Main.java when a stream starts.
      */
-    public static void broadcastToAll(String message) {
-        LOGGER.debug("Broadcasting to {} clients: {}", sessions.size(), message);
-        sessions.forEach(session -> sendToSession(session, message));
+    public static void setActiveStreamSession(StreamSession session) {
+        activeStreamSession = session;
     }
 
     /**
-     * Broadcast stream status update (e.g., "stream started", "stream ended").
-     */
-    public static void broadcastStreamStatus(String status, String details) {
-        JsonObject msg = createMessage("stream", status, details);
-        broadcastToAll(msg.toString());
-    }
-
-    /**
-     * Broadcast viewer count update.
-     */
-    public static void broadcastViewerCount(int count) {
-        JsonObject msg = new JsonObject();
-        msg.addProperty("type", "viewers");
-        msg.addProperty("count", count);
-        broadcastToAll(msg.toString());
-    }
-
-    // ---------- Helper Methods ----------
-    private static void sendToSession(Session session, String message) {
-        try {
-            if (session != null && session.isOpen()) {
-                session.getRemote().sendString(message);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Error sending to session: {}", e.getMessage());
-        }
-    }
-
-    private static JsonObject createMessage(String type, String event, String data) {
-        JsonObject msg = new JsonObject();
-        msg.addProperty("type", type);
-        msg.addProperty("event", event);
-        msg.addProperty("data", data);
-        msg.addProperty("timestamp", System.currentTimeMillis());
-        return msg;
-    }
-
-    /**
-     * Get current number of connected clients.
+     * Returns the number of currently connected WebSocket clients.
+     * Called by Main.java for stats.
      */
     public static int getConnectionCount() {
         return sessions.size();
     }
 
     /**
-     * Set the active stream session (called by Main.java)
+     * Broadcasts a raw JSON string to all connected clients.
+     * Called by Main.java.
      */
-    public static void setActiveStreamSession(StreamSession session) {
-        activeStreamSession = session;
-        LOGGER.info("Active stream session set: {}", session != null ? session.getSessionId() : "null");
+    public static void broadcastToAll(String message) {
+        sessions.keySet().stream().filter(Session::isOpen).forEach(session -> {
+            try {
+                session.getRemote().sendString(message);
+            } catch (IOException e) {
+                System.err.println("❌ Error broadcasting to session: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Broadcasts stream status updates (e.g. duration) to clients.
+     * Called by Main.java's timer loop.
+     */
+    public static void broadcastStreamStatus(String status, String time) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", "stream_status");
+        json.addProperty("status", status);
+        json.addProperty("time", time);
+        broadcastToAll(json.toString());
+    }
+
+    @OnWebSocketConnect
+    public void onConnect(Session session) {
+        sessions.put(session, "Anonymous");
+        System.out.println("📡 WebSocket connected: " + session.getRemoteAddress().getAddress() + " (Total: " + sessions.size() + ")");
+        
+        try {
+            JsonObject welcomeMsg = createMessage("system", "connected", "Connected to MetaStream Live");
+            sendToSession(session, welcomeMsg.toString());
+        } catch (Exception e) {
+            System.err.println("❌ Error sending welcome message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @OnWebSocketClose
+    public void onClose(Session session, int statusCode, String reason) {
+        sessions.remove(session);
+        System.out.println("❌ WebSocket disconnected: " + statusCode + " - " + reason);
+    }
+
+    @OnWebSocketMessage
+    public void onMessage(Session session, String message) {
+        // 1. Force Print immediately to prove we reached here
+        System.out.println("📨 [DEBUG] Raw payload received: " + message);
+        
+        try {
+            // Validate JSON string
+            if (message == null || message.trim().isEmpty()) {
+                System.err.println("⚠️ Received empty message");
+                return;
+            }
+
+            // 2. Use instance method fromJson (Safest way to parse)
+            JsonObject json = gson.fromJson(message, JsonObject.class);
+            
+            if (json == null) {
+                System.err.println("⚠️ Parsed JSON is null");
+                return;
+            }
+
+            // Check for required fields safely
+            if (!json.has("type")) {
+                 System.err.println("⚠️ Message missing 'type' field: " + message);
+                 return;
+            }
+
+            String type = json.get("type").getAsString();
+
+            switch (type) {
+                case "chat":
+                    handleChatMessage(session, json);
+                    break;
+                case "ping":
+                    JsonObject pongMsg = createMessage("system", "pong", "pong");
+                    sendToSession(session, pongMsg.toString());
+                    break;
+                default:
+                    System.out.println("⚠️ Unknown message type: " + type);
+            }
+        } catch (Throwable t) { 
+            // 3. Catch Throwable to trap Errors (like NoSuchMethodError) that usually crash threads silently
+            System.err.println("🔥 CRITICAL ERROR in onMessage: " + t.getClass().getName());
+            t.printStackTrace();
+        }
+    }
+
+    private void handleChatMessage(Session session, JsonObject json) {
+        try {
+            String text = json.has("text") ? json.get("text").getAsString() : "";
+            String author = json.has("author") ? json.get("author").getAsString() : "Anonymous";
+            
+            // Update session username if provided
+            sessions.put(session, author);
+
+            System.out.println("[CHAT] " + author + ": " + text);
+
+            // Log chat to active session if available
+            if (activeStreamSession != null) {
+                // This line caused the error because StreamSession was missing the method
+                activeStreamSession.addChatMessage(new ChatMessage(author, text));
+            } else {
+                System.out.println("⚠️ No active stream session to log chat to.");
+            }
+
+            // Broadcast to all clients
+            broadcastMessage("chat", "message", json);
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error processing chat message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void broadcastMessage(String type, String event, JsonObject data) {
+        // Ensure timestamp exists
+        if (!data.has("timestamp")) {
+            data.addProperty("timestamp", System.currentTimeMillis());
+        }
+        
+        String payload = data.toString();
+        // Use the new public method to avoid duplication logic
+        broadcastToAll(payload);
+    }
+
+    private void sendToSession(Session session, String message) {
+        try {
+            session.getRemote().sendString(message);
+        } catch (IOException e) {
+            System.err.println("❌ Error sending to session: " + e.getMessage());
+        }
+    }
+
+    private JsonObject createMessage(String type, String event, String data) {
+        JsonObject json = new JsonObject();
+        json.addProperty("type", type);
+        json.addProperty("event", event);
+        json.addProperty("data", data);
+        json.addProperty("timestamp", System.currentTimeMillis());
+        return json;
     }
 }
