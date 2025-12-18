@@ -6,39 +6,233 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaStream Live | Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        #videoPlayer {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .live-badge {
+            background: #ef4444;
+        }
+    </style>
 </head>
 
-<body class="bg-gradient-to-b from-white to-[#f0f2f9] min-h-screen flex flex-col items-center">
-    <header class="navbar w-full">
-        <div class="flex items-center gap-3">
-            <svg class="w-7 h-7 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 p-4">
+        <div class="max-w-5xl mx-auto flex items-center gap-3">
+            <svg class="w-7 h-7 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
                     d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Z" />
             </svg>
-            <h1 class="font-semibold text-lg">MetaStream Live</h1>
+            <h1 class="font-semibold text-lg" id="streamerName">MetaStream Live</h1>
+            <span class="live-badge text-white text-xs px-2 py-1 rounded">🔴 LIVE</span>
+            <span class="ml-auto text-sm text-gray-500" id="viewerCount">0 viewers</span>
         </div>
     </header>
 
-    <main class="flex flex-col items-center w-full max-w-5xl p-6">
-        <div class="w-full bg-white shadow-md rounded-2xl overflow-hidden mb-6">
-            <div class="aspect-video bg-brand-dark flex items-center justify-center text-white text-lg">Live Stream
+    <main class="max-w-5xl mx-auto p-6">
+
+        <!-- Video Player -->
+        <div class="bg-white rounded-2xl shadow-md overflow-hidden mb-6">
+            <video id="videoPlayer" controls autoplay class="w-full aspect-video">
+            </video>
+
+            <div id="playerStatus" class="p-4 text-center text-sm text-gray-500">
+                ⏳ Connecting to stream...
             </div>
         </div>
-        <div class="bg-white rounded-2xl shadow-md p-6 w-full max-w-2xl">
+
+        <!-- Chat -->
+        <div class="bg-white rounded-2xl shadow-md p-6">
             <h2 class="text-xl font-semibold mb-4">Live Chat</h2>
-            <div class="space-y-3 overflow-y-auto max-h-64 border border-gray-100 p-4 rounded-lg mb-4">
-                <p><strong>Sarah:</strong> Amazing setup!</p>
-                <p><strong>Alex:</strong> Can you show the studio gear?</p>
-                <p><strong>David:</strong> Quality’s clean 🔥</p>
+
+            <div id="chatMessages" class="h-80 overflow-y-auto border border-gray-100 rounded-lg p-4 mb-4 space-y-2">
+                <p class="text-gray-400 text-sm text-center">No messages yet...</p>
             </div>
-            <div class="flex items-center gap-3">
-                <input type="text" placeholder="Send a message..." class="input flex-1" />
-                <button class="btn-primary px-5">Send</button>
+
+            <div class="flex gap-2">
+                <input id="usernameInput" type="text" placeholder="Your name"
+                    class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input id="chatInput" type="text" placeholder="Send a message..."
+                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button id="sendBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                    Send
+                </button>
             </div>
         </div>
     </main>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        const WS_URL = 'ws://localhost:8080/ws';
+        const video = document.getElementById('videoPlayer');
+        const playerStatus = document.getElementById('playerStatus');
+        let hls = null;
+        let ws = null;
+
+        // Initialize WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'chat') {
+                    addChatMessage(data.author, data.text, data.timestamp);
+                } else if (data.type === 'viewers') {
+                    updateViewerCount(data.count);
+                } else if (data.type === 'stream' && data.event === 'ended') {
+                    playerStatus.innerHTML = '⚠️ Stream has ended. <a href="/" class="text-blue-600 underline">Back to home</a>';
+                    video.pause();
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('❌ WebSocket disconnected, reconnecting...');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Load stream
+        async function loadStream() {
+            try {
+                const res = await fetch(`${API_BASE}/stream/active`);
+                if (!res.ok) {
+                    playerStatus.innerHTML = '❌ No active stream. <a href="/" class="text-blue-600 underline">Back to home</a>';
+                    return;
+                }
+
+                const data = await res.json();
+                document.getElementById('streamerName').textContent = data.username;
+
+                if (data.hlsUrl) {
+                    initHLSPlayer(data.hlsUrl);
+                }
+
+                updateViewerCount(data.viewers || 0);
+
+            } catch (err) {
+                console.error('Failed to load stream:', err);
+                playerStatus.textContent = '❌ Connection error';
+            }
+        }
+
+        // HLS Player
+        function initHLSPlayer(hlsUrl) {
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true
+                });
+
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    playerStatus.textContent = '✅ Stream connected';
+                    video.play();
+                });
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        playerStatus.textContent = '⚠️ Waiting for stream...';
+                        setTimeout(() => hls.loadSource(hlsUrl), 3000);
+                    }
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = hlsUrl;
+                video.addEventListener('loadedmetadata', () => {
+                    playerStatus.textContent = '✅ Stream connected';
+                    video.play();
+                });
+            }
+        }
+
+        // Chat
+        function addChatMessage(author, text, timestamp) {
+            const container = document.getElementById('chatMessages');
+
+            // Remove "no messages" placeholder
+            if (container.querySelector('.text-gray-400')) {
+                container.innerHTML = '';
+            }
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'p-2 hover:bg-gray-50 rounded';
+            msgDiv.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+                        ${author[0].toUpperCase()}
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-semibold text-sm text-gray-700">${author}</span>
+                            <span class="text-xs text-gray-400">${new Date(timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-0.5">${text}</p>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendMessage() {
+            const usernameInput = document.getElementById('usernameInput');
+            const chatInput = document.getElementById('chatInput');
+
+            const username = usernameInput.value.trim() || 'Anonymous';
+            const text = chatInput.value.trim();
+
+            if (!text) return;
+
+            // Send via WebSocket
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    author: username,
+                    text: text
+                }));
+
+                chatInput.value = '';
+            }
+        }
+
+        function updateViewerCount(count) {
+            document.getElementById('viewerCount').textContent = `${count} viewer${count !== 1 ? 's' : ''}`;
+        }
+
+        // Event listeners
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Initialize
+        connectWebSocket();
+        loadStream();
+    </script>
 </body>
 
 </html>

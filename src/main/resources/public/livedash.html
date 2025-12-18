@@ -5,214 +5,357 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaStream Live | Dashboard</title>
-
-    <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+        #videoPlayer {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
 
-    <link rel="icon" href="/assets/favicon.ico" type="image/x-icon" />
+        .live-badge {
+            background: #ef4444;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 12px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-connected {
+            background: #10b981;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+        }
+    </style>
 </head>
 
-<body class="text-gray-900 antialiased bg-gradient-to-b from-white to-[#f0f2f9] font-sans">
-    <!-- Header -->
-    <header class="main-header border-b border-gray-100 pb-4 mb-6">
-        <div class="logo">
-            <i class="fa-solid fa-infinity logo-icon"></i>
-            <span id="usernameDisplay">MetaStream Live</span>
-            <span class="live-indicator">LIVE</span>
-        </div>
+<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen">
 
-        <div class="user-nav">
-            <div class="nav-icon flex items-center justify-center">
-                <i class="fa-regular fa-bell text-gray-500"></i>
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <svg class="w-7 h-7 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Z" />
+                </svg>
+                <h1 class="font-semibold text-lg" id="usernameDisplay">MetaStream Live</h1>
+                <span class="live-badge">🔴 LIVE</span>
             </div>
-            <div class="nav-icon profile flex items-center justify-center">
-                <i class="fa-solid fa-user text-gray-600"></i>
+            <div class="flex items-center gap-2 text-sm">
+                <div id="wsStatus" class="status-dot status-disconnected"></div>
+                <span id="wsText" class="text-gray-500">Connecting...</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Dashboard -->
-    <main class="dashboard-container">
-        <!-- Stream Panel -->
-        <section class="stream-panel">
-            <div class="video-player flex items-center justify-center text-gray-400 text-lg relative">
-                <p id="streamInfo" class="text-center">
-                    Fetching stream data...
-                </p>
-            </div>
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <div class="stream-stats">
-                <div class="stat-item">
-                    <i class="fa-solid fa-eye stat-icon"></i>
-                    <strong id="viewerCount">0</strong>
-                    <span>Viewers</span>
-                </div>
-                <div class="stat-item">
-                    <i class="fa-regular fa-clock stat-icon"></i>
-                    <strong id="duration">--:--:--</strong>
-                    <span>Duration</span>
-                </div>
-                <div id="stopStreamTrigger" class="stat-item cursor-pointer hover:text-gray-800">
-                    <i class="fa-solid fa-square stat-icon text-red-500"></i>
-                    <span>Stop Stream</span>
+        <!-- Video Player -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white rounded-2xl shadow-md overflow-hidden">
+                <video id="videoPlayer" controls autoplay muted class="w-full aspect-video">
+                </video>
+
+                <div id="playerStatus" class="p-4 text-center text-sm text-gray-500">
+                    ⏳ Waiting for stream...
                 </div>
             </div>
 
-            <div class="stream-actions">
-                <button id="stopStreamBtn" class="btn btn-stop">Stop Stream</button>
-                <button class="btn btn-logs">View Logs</button>
+            <!-- Stream Stats -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <p class="text-2xl font-bold text-blue-600" id="duration">00:00:00</p>
+                    <p class="text-xs text-gray-500">Duration</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <p class="text-2xl font-bold text-green-600" id="viewerCount">0</p>
+                    <p class="text-xs text-gray-500">Viewers</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <p class="text-2xl font-bold text-purple-600" id="messageCount">0</p>
+                    <p class="text-xs text-gray-500">Messages</p>
+                </div>
             </div>
-        </section>
+
+            <!-- Stream Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="font-semibold text-blue-900 mb-2">📡 Stream Info</h3>
+                <div class="space-y-1 text-sm text-blue-800">
+                    <p><strong>RTMP URL:</strong> <code id="rtmpUrl"
+                            class="bg-white px-2 py-0.5 rounded text-xs">--</code></p>
+                    <p><strong>HLS Playback:</strong> <code id="hlsUrl"
+                            class="bg-white px-2 py-0.5 rounded text-xs">--</code></p>
+                    <p><strong>Session ID:</strong> <span id="sessionId" class="font-mono text-xs">--</span></p>
+                </div>
+            </div>
+
+            <button id="stopStreamBtn"
+                class="w-full bg-red-600 text-white font-semibold py-3 rounded-lg hover:bg-red-700 transition-all">
+                🛑 Stop Stream
+            </button>
+        </div>
 
         <!-- Chat Panel -->
-        <aside class="chat-panel">
-            <h2>Live Chat</h2>
+        <div class="bg-white rounded-2xl shadow-md p-6 flex flex-col">
+            <h2 class="text-xl font-semibold mb-4">Live Chat</h2>
 
-            <!-- Chat Messages -->
-            <div id="chatMessages" class="chat-messages">
-                <p class="text-gray-400 text-sm text-center mt-4">
-                    No messages yet...
-                </p>
+            <div id="chatMessages" class="flex-1 overflow-y-auto border border-gray-100 rounded-lg p-4 mb-4 space-y-2"
+                style="height: 500px;">
+                <p class="text-gray-400 text-sm text-center">No messages yet...</p>
             </div>
 
-            <!-- Chat Input -->
-            <div class="chat-input-area">
-                <input id="chatInput" type="text" placeholder="Send a message..." class="focus:outline-none" />
+            <div class="flex gap-2">
+                <input id="chatInput" type="text" placeholder="Send a message..."
+                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button id="sendBtn"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all">
+                    Send
+                </button>
             </div>
-
-            <!-- Chat Toggles -->
-            <div class="chat-toggles">
-                <div class="toggle-row">
-                    <div class="toggle-label">
-                        <div class="toggle-icon flex items-center justify-center">
-                            <i class="fa-solid fa-sms text-blue-600"></i>
-                        </div>
-                        Enable SMS Alerts
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" checked />
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <div class="toggle-row">
-                    <div class="toggle-label">
-                        <div class="toggle-icon tts flex items-center justify-center">
-                            <i class="fa-solid fa-volume-high text-green-600"></i>
-                        </div>
-                        Enable TTS Audio
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" />
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-        </aside>
+        </div>
     </main>
 
-    <footer class="text-center text-sm text-gray-500 mt-6">
-        © 2025 MetaStream Live. Powered by Meta-inspired design.
-    </footer>
-
     <script>
-        const streamInfo = document.getElementById("streamInfo");
-        const usernameDisplay = document.getElementById("usernameDisplay");
-        const viewerCount = document.getElementById("viewerCount");
-        const durationEl = document.getElementById("duration");
-        const chatInput = document.getElementById("chatInput");
-        const chatMessages = document.getElementById("chatMessages");
+        const API_BASE = 'http://localhost:8080/api';
+        const WS_URL = 'ws://localhost:8080/ws';
+        const video = document.getElementById('videoPlayer');
+        const playerStatus = document.getElementById('playerStatus');
+        let hls = null;
+        let ws = null;
+        let sessionData = null;
 
-        // Fetch session details
-        async function loadStreamInfo() {
+        // WebSocket connection
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+                document.getElementById('wsStatus').className = 'status-dot status-connected';
+                document.getElementById('wsText').textContent = 'Connected';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('WS Message:', data);
+
+                if (data.type === 'chat') {
+                    addChatMessage(data.author, data.text, data.timestamp);
+                    updateMessageCount();
+                } else if (data.type === 'viewers') {
+                    document.getElementById('viewerCount').textContent = data.count;
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('❌ WebSocket disconnected');
+                document.getElementById('wsStatus').className = 'status-dot status-disconnected';
+                document.getElementById('wsText').textContent = 'Reconnecting...';
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Load session
+        async function loadSession() {
             try {
-                const res = await fetch("/activeStream");
-                if (!res.ok) throw new Error("No active stream.");
-                const data = await res.json();
+                const res = await fetch(`${API_BASE}/stream/active`);
+                if (!res.ok) {
+                    playerStatus.innerHTML = '❌ No active stream. <a href="index.html" class="text-blue-600 underline">Start a new stream</a>';
+                    return;
+                }
 
-                usernameDisplay.textContent = data.username + " — Dashboard";
-                streamInfo.innerHTML = `
-          <div class="text-gray-600 text-sm">
-            <p><strong>RTMP URL:</strong> ${data.rtmpUrl}</p>
-            <p><strong>Started:</strong> ${data.startedAt}</p>
-            <p><strong>Messages:</strong> ${data.messages}</p>
-          </div>
-        `;
-                viewerCount.textContent = Math.floor(Math.random() * 500) + 50; // Mock viewer count
-                startTimer(data.startedAt);
+                sessionData = await res.json();
+                document.getElementById('usernameDisplay').textContent = sessionData.username + ' — Dashboard';
+                document.getElementById('rtmpUrl').textContent = sessionData.rtmpUrl;
+                document.getElementById('hlsUrl').textContent = sessionData.hlsUrl;
+                document.getElementById('sessionId').textContent = sessionData.sessionId;
+                document.getElementById('viewerCount').textContent = sessionData.viewers || 0;
+
+                if (sessionData.hlsUrl) {
+                    initHLSPlayer(sessionData.hlsUrl);
+                }
+
+                startDurationTimer();
+                setInterval(updateStats, 5000);
+
             } catch (err) {
-                streamInfo.innerHTML =
-                    "<p class='text-red-500'>No active stream session found.</p>";
+                console.error('Load failed:', err);
+                playerStatus.textContent = '❌ Connection error';
             }
         }
 
-        // Simple duration counter
-        function startTimer(startTime) {
-            const start = new Date(startTime);
+        // HLS Player
+        function initHLSPlayer(hlsUrl) {
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90
+                });
+
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    playerStatus.textContent = '✅ Stream connected';
+                    video.play().catch(e => console.log('Autoplay blocked:', e));
+                });
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        console.error('HLS Error:', data);
+                        playerStatus.textContent = '⚠️ Waiting for OBS stream...';
+                        setTimeout(() => hls.loadSource(hlsUrl), 5000);
+                    }
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = hlsUrl;
+                video.addEventListener('loadedmetadata', () => {
+                    playerStatus.textContent = '✅ Stream connected';
+                    video.play();
+                });
+            }
+        }
+
+        // Stats update
+        async function updateStats() {
+            try {
+                const res = await fetch(`${API_BASE}/stream/active`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('viewerCount').textContent = data.viewers || 0;
+                    updateMessageCount();
+                }
+            } catch (err) {
+                console.error('Stats failed:', err);
+            }
+        }
+
+        // Duration timer
+        function startDurationTimer() {
+            if (!sessionData || !sessionData.startedAt) return;
+
+            const startTime = new Date(sessionData.startedAt);
             setInterval(() => {
-                const diff = new Date() - start;
-                const hrs = Math.floor(diff / 3600000);
-                const mins = Math.floor((diff % 3600000) / 60000);
-                const secs = Math.floor((diff % 60000) / 1000);
-                durationEl.textContent = `${hrs.toString().padStart(2, "0")}:${mins
-                    .toString()
-                    .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+                const now = new Date();
+                const diff = now - startTime;
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                document.getElementById('duration').textContent =
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             }, 1000);
         }
 
-        // Stop stream
-        async function stopStream() {
-            if (!confirm("Are you sure you want to stop the stream?")) return;
-            const res = await fetch("/stopStream", { method: "POST" });
-            if (res.ok) {
-                alert("🛑 Stream stopped successfully.");
-                window.location.href = "summary.html";
-            } else {
-                alert("Error stopping stream.");
+        // Chat
+        function addChatMessage(author, text, timestamp) {
+            const container = document.getElementById('chatMessages');
+
+            if (container.querySelector('.text-gray-400')) {
+                container.innerHTML = '';
+            }
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'p-2 hover:bg-gray-50 rounded';
+            msgDiv.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+                        ${author[0].toUpperCase()}
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-semibold text-sm text-gray-700">${author}</span>
+                            <span class="text-xs text-gray-400">${new Date(timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-0.5">${text}</p>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text || !sessionData) return;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    author: sessionData.username,
+                    text: text
+                }));
+                input.value = '';
             }
         }
 
-        document
-            .getElementById("stopStreamBtn")
-            .addEventListener("click", stopStream);
-        document
-            .getElementById("stopStreamTrigger")
-            .addEventListener("click", stopStream);
+        function updateMessageCount() {
+            const count = document.getElementById('chatMessages').querySelectorAll('.hover\\:bg-gray-50').length;
+            document.getElementById('messageCount').textContent = count;
+        }
 
-        // Mock chat send (to backend later)
-        chatInput.addEventListener("keydown", async (e) => {
-            if (e.key === "Enter" && chatInput.value.trim() !== "") {
-                const msg = chatInput.value.trim();
-                chatMessages.innerHTML += `
-          <div class="message outgoing">
-            <div class="message-content">
-              <strong>You</strong>
-              <p>${msg}</p>
-            </div>
-            <span class="message-timestamp">${new Date().toLocaleTimeString()}</span>
-          </div>`;
-                chatInput.value = "";
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+        // Stop stream
+        document.getElementById('stopStreamBtn').addEventListener('click', async () => {
+            if (!confirm('Stop the stream? This will end the session.')) return;
 
-                await fetch("/sendMessage", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ author: "You", text: msg }),
-                });
+            try {
+                const res = await fetch(`${API_BASE}/stream/stop`, { method: 'POST' });
+                if (res.ok) {
+                    window.location.href = 'summary.html';
+                } else {
+                    alert('❌ Failed to stop stream');
+                }
+            } catch (err) {
+                console.error('Stop failed:', err);
+                alert('❌ Connection error');
             }
         });
 
-        // Load stream info on page load
-        loadStreamInfo();
+        // Event listeners
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Initialize
+        connectWebSocket();
+        loadSession();
     </script>
 </body>
 
