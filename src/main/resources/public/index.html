@@ -2,47 +2,366 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MetaStream Live - Start</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaStream Live - Start Broadcasting</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-    <div class="bg-gray-800 p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
-        <h1 class="text-3xl font-bold text-center mb-8">MetaStream <span class="text-blue-500">Live</span></h1>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
         
-        <div class="space-y-4">
-            <input type="text" id="username" placeholder="Enter Name" class="w-full p-4 rounded-xl bg-gray-900 border border-gray-700 outline-none focus:border-blue-500">
-            <button onclick="startStream()" class="w-full bg-blue-600 hover:bg-blue-700 p-4 rounded-xl font-bold text-lg">Start Session</button>
+        body {
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 100%);
+            min-height: 100vh;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glow-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+        
+        .float {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .status-offline {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+    </style>
+</head>
+<body class="text-white">
+    
+    <!-- Main Container -->
+    <div class="min-h-screen flex items-center justify-center px-4 py-12">
+        <div class="max-w-md w-full">
             
-            <div id="resetArea" class="hidden text-center mt-6 p-4 border border-red-500/30 rounded-xl bg-red-500/10">
-                <p class="text-red-400 text-sm mb-2 font-semibold">⚠️ A session is already active.</p>
-                <button onclick="forceReset()" class="text-xs text-gray-400 underline hover:text-white uppercase tracking-widest transition">Force Reset System</button>
+            <!-- Logo & Header -->
+            <div class="text-center mb-10">
+                <div class="inline-block p-4 rounded-2xl glow-card mb-6 float">
+                    <svg class="w-16 h-16 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                </div>
+                <h1 class="text-4xl font-bold mb-3">
+                    Meta<span class="gradient-text">Stream</span> Live
+                </h1>
+                <p class="text-gray-400 text-sm">Broadcast from your Ray-Ban Meta glasses</p>
+            </div>
+            
+            <!-- Success Message -->
+            <div id="successMessage" class="hidden glow-card rounded-2xl p-4 mb-6 border-green-500/30">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-green-400 text-sm">Session Created!</p>
+                        <p class="text-green-300/70 text-xs mt-0.5">Launching dashboard...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden glow-card rounded-2xl p-4 mb-6 border-red-500/30">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-red-400 text-sm">Error</p>
+                        <p id="errorText" class="text-red-300/70 text-xs mt-1"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Form Card -->
+            <div class="glow-card rounded-3xl p-8">
+                <form id="startForm" class="space-y-6">
+                    
+                    <!-- Username Input -->
+                    <div>
+                        <label for="username" class="block text-sm font-semibold text-gray-300 mb-3">
+                            Display Name
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                                </svg>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                placeholder="Enter your name" 
+                                required
+                                class="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-white placeholder-gray-500"
+                                maxlength="50"
+                            />
+                        </div>
+                    </div>
+                    
+                    <!-- Notifications Toggle -->
+                    <div class="flex items-center justify-between p-5 bg-white/5 rounded-xl border border-white/10">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-xl flex items-center justify-center">
+                                <svg class="w-6 h-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-white">Enable Notifications</p>
+                                <p class="text-xs text-gray-400 mt-0.5">SMS & Text-to-Speech alerts</p>
+                            </div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="ttsEnabled" class="sr-only peer">
+                            <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-600 peer-checked:to-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        id="startButton"
+                        class="w-full btn-primary text-white font-bold py-5 px-6 rounded-xl shadow-2xl flex items-center justify-center gap-3 group"
+                    >
+                        <svg class="w-6 h-6 group-hover:scale-110 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                        </svg>
+                        <span id="buttonText" class="text-lg">Start Broadcasting</span>
+                    </button>
+                </form>
+                
+                <!-- Conflict Panel -->
+                <div id="conflictPanel" class="hidden mt-6 p-5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-amber-400 text-sm">Session Conflict</p>
+                            <p class="text-amber-300/80 text-xs mt-1" id="conflictMessage">
+                                Another session is active. Force reset to continue.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onclick="forceReset()" 
+                        class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        Force Reset System
+                    </button>
+                </div>
+            </div>
+            
+            <!-- System Status -->
+            <div class="mt-8 text-center">
+                <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10">
+                    <span id="statusIndicator" class="status-dot status-offline pulse"></span>
+                    <span id="statusText" class="text-xs text-gray-400">Checking backend...</span>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="mt-8 text-center text-xs text-gray-500">
+                <p>Powered by Ray-Ban Meta • © 2025 MetaStream</p>
             </div>
         </div>
     </div>
+    
     <script>
+        const API_BASE = 'http://localhost:8080/api';
+        
+        // Check backend health
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    document.getElementById('statusIndicator').className = 'status-dot status-online pulse';
+                    document.getElementById('statusText').textContent = 'Backend online';
+                } else {
+                    document.getElementById('statusIndicator').className = 'status-dot status-offline';
+                    document.getElementById('statusText').textContent = 'Backend error';
+                }
+            } catch (error) {
+                document.getElementById('statusIndicator').className = 'status-dot status-offline';
+                document.getElementById('statusText').textContent = 'Backend offline';
+            }
+        });
+        
+        // Form submission
+        document.getElementById('startForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await startStream();
+        });
+        
         async function startStream() {
-            const user = document.getElementById('username').value;
-            if (!user) return alert("Please enter a name");
+            const username = document.getElementById('username').value.trim();
+            const ttsEnabled = document.getElementById('ttsEnabled').checked;
             
-            const res = await fetch('/api/stream/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user })
-            });
-
-            if (res.ok) {
-                window.location.href = 'livedash.html';
-            } else if (res.status === 409) {
-                document.getElementById('resetArea').classList.remove('hidden');
-            } else {
-                alert("Error starting stream. Check terminal logs.");
+            if (!username || username.length < 2) {
+                showError('Please enter a valid name (2+ characters)');
+                return;
+            }
+            
+            hideMessages();
+            
+            const button = document.getElementById('startButton');
+            const buttonText = document.getElementById('buttonText');
+            button.disabled = true;
+            button.classList.add('opacity-70', 'cursor-not-allowed');
+            buttonText.textContent = 'Creating session...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/stream/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ username, ttsEnabled })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess();
+                    setTimeout(() => window.location.href = '/livedash.html', 1000);
+                } else if (response.status === 409) {
+                    showConflict(data.error || 'A stream session is already active');
+                    resetButton();
+                } else if (response.status === 400) {
+                    showError(data.error || 'Invalid request');
+                    resetButton();
+                } else if (response.status === 503) {
+                    showError(data.error || 'Media server is not running');
+                    resetButton();
+                } else {
+                    showError(data.error || 'Failed to create stream session');
+                    resetButton();
+                }
+            } catch (error) {
+                showError('Cannot connect to backend. Is the server running?');
+                resetButton();
             }
         }
-
+        
         async function forceReset() {
-            await fetch('/api/stream/stop', { method: 'POST' });
-            alert("System reset successful. You can now start a new stream.");
-            location.reload();
+            try {
+                await fetch(`${API_BASE}/stream/stop`, { method: 'POST' });
+                await fetch(`${API_BASE}/stream/reset`, { method: 'POST' });
+                
+                document.getElementById('conflictPanel').classList.add('hidden');
+                showSuccess('System reset successful!');
+                
+                setTimeout(() => {
+                    hideMessages();
+                    document.getElementById('username').value = '';
+                    document.getElementById('ttsEnabled').checked = false;
+                }, 2000);
+            } catch (error) {
+                showError('Failed to reset. Try restarting the backend.');
+            }
+        }
+        
+        function showSuccess(message) {
+            const div = document.getElementById('successMessage');
+            if (message) {
+                div.querySelector('p:last-child').textContent = message;
+            }
+            div.classList.remove('hidden');
+        }
+        
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').classList.remove('hidden');
+        }
+        
+        function showConflict(message) {
+            document.getElementById('conflictMessage').textContent = message;
+            document.getElementById('conflictPanel').classList.remove('hidden');
+        }
+        
+        function hideMessages() {
+            document.getElementById('successMessage').classList.add('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('conflictPanel').classList.add('hidden');
+        }
+        
+        function resetButton() {
+            const button = document.getElementById('startButton');
+            const buttonText = document.getElementById('buttonText');
+            button.disabled = false;
+            button.classList.remove('opacity-70', 'cursor-not-allowed');
+            buttonText.textContent = 'Start Broadcasting';
         }
     </script>
 </body>

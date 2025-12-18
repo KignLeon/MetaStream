@@ -105,3 +105,33 @@ Chat Messages:
 [2025-12-18T12:07:56.186731] SYSTEM: Stream Ended. Duration: 00:00:05
 [2025-12-18T12:13:10.734741] SYSTEM: Stream Ended. Duration: 00:00:07
 [2025-12-18T12:23:30.155820] SYSTEM: Stream Ended. Duration: 00:00:03
+
+==================================================
+Stream Session Log
+==================================================
+User: Leon
+Session ID: f7287b7c-e4f0-4b31-9d1e-88c97f976993
+Started: 2025-12-18 13:19:36
+Ended: 2025-12-18 13:25:15
+Duration: 00:05:39
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
+
+==================================================
+Stream Session Log
+==================================================
+User: Leon
+Session ID: b281ea62-1f25-4448-ab7e-72739c1a2319
+Started: 2025-12-18 13:35:04
+Ended: 2025-12-18 13:36:26
+Duration: 00:01:21
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
