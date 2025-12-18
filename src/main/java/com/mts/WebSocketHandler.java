@@ -1,146 +1,65 @@
 package com.mts;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
-import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.annotations.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * LO6: GUI & Events - WebSocket handles real-time chat events
- * LO7: Exception Handling - Try/catch in message handlers
- */
 @WebSocket
 public class WebSocketHandler {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebSocketHandler.class);
+    private static final Map<Session, String> sessions = new ConcurrentHashMap<>();
     private static final Gson gson = new Gson();
-    
-    private static final Set<Session> sessions = ConcurrentHashMap.newKeySet();
-    private static StreamSession activeStreamSession;
+    private static final FileLogger fileLogger = new FileLogger();
 
     @OnWebSocketConnect
     public void onConnect(Session session) {
-        sessions.add(session);
-        LOGGER.info("📡 WebSocket connected: {} (Total: {})", session.getRemoteAddress(), sessions.size());
-        
-        JsonObject welcomeMsg = createMessage("system", "connected", "Connected to MetaStream Live");
-        sendToSession(session, welcomeMsg.toString());
+        System.out.println("📡 WS Connected: " + session.getRemoteAddress().getAddress());
+        sessions.put(session, "Anonymous");
+        try {
+            JsonObject welcome = new JsonObject();
+            welcome.addProperty("type", "system");
+            welcome.addProperty("data", "Connected to MetaStream Live");
+            session.getRemote().sendString(gson.toJson(welcome));
+        } catch (Exception e) {}
     }
 
     @OnWebSocketClose
     public void onClose(Session session, int statusCode, String reason) {
         sessions.remove(session);
-        LOGGER.info("❌ WebSocket closed: {} (Total: {})", session.getRemoteAddress(), sessions.size());
     }
 
     @OnWebSocketMessage
     public void onMessage(Session session, String message) {
         try {
-            LOGGER.info("📨 Received WebSocket message: {}", message);
+            if (message == null || message.trim().isEmpty()) return;
+            JsonObject json = gson.fromJson(message, JsonObject.class);
             
-            JsonObject data = gson.fromJson(message, JsonObject.class);
-            String type = data.get("type").getAsString();
-            
-            switch (type) {
-                case "chat":
-                    handleChatMessage(data);
-                    break;
-                case "ping":
-                    JsonObject pongMsg = createMessage("system", "pong", "pong");
-                    sendToSession(session, pongMsg.toString());
-                    break;
-                default:
-                    LOGGER.warn("Unknown message type: {}", type);
+            if (json.has("type") && "chat".equals(json.get("type").getAsString())) {
+                String author = json.has("author") ? json.get("author").getAsString() : "Viewer";
+                String text = json.has("text") ? json.get("text").getAsString() : "";
+
+                if (!text.isEmpty()) {
+                    // Update counter
+                    StreamSession active = Main.getActiveSession();
+                    if (active != null) active.incrementMessages();
+
+                    // LO8: Logging
+                    fileLogger.logChat(author, text);
+                    
+                    // Broadcast
+                    broadcast(message);
+                }
             }
-            
-        } catch (Exception e) {
-            // LO7: Exception Handling
-            LOGGER.error("Error handling WebSocket message: {}", message, e);
+        } catch (Throwable t) {
+            System.err.println("⚠️ WS Error: " + t.getMessage());
         }
     }
 
-    @OnWebSocketError
-    public void onError(Session session, Throwable error) {
-        LOGGER.error("WebSocket error: {}", error.getMessage(), error);
-    }
-
-    private void handleChatMessage(JsonObject data) {
-        try {
-            String author = data.get("author").getAsString();
-            String text = data.get("text").getAsString();
-            
-            LOGGER.info("[CHAT] {}: {}", author, text);
-            
-            if (activeStreamSession != null) {
-                ChatMessage msg = new ChatMessage(author, text);
-                activeStreamSession.addMessage(msg);
-            }
-            
-            JsonObject broadcast = new JsonObject();
-            broadcast.addProperty("type", "chat");
-            broadcast.addProperty("author", author);
-            broadcast.addProperty("text", text);
-            broadcast.addProperty("timestamp", System.currentTimeMillis());
-            
-            broadcastToAll(broadcast.toString());
-            
-        } catch (Exception e) {
-            LOGGER.error("Error handling chat message", e);
-        }
-    }
-
-    public static void broadcastToAll(String message) {
-        LOGGER.debug("Broadcasting to {} clients", sessions.size());
-        sessions.forEach(session -> sendToSession(session, message));
-    }
-
-    public static void broadcastStreamStatus(String status, String details) {
-        JsonObject msg = createMessage("stream", status, details);
-        broadcastToAll(msg.toString());
-    }
-
-    public static void broadcastViewerCount(int count) {
-        JsonObject msg = new JsonObject();
-        msg.addProperty("type", "viewers");
-        msg.addProperty("count", count);
-        broadcastToAll(msg.toString());
-    }
-
-    private static void sendToSession(Session session, String message) {
-        try {
-            if (session != null && session.isOpen()) {
-                session.getRemote().sendString(message);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Error sending to session: {}", e.getMessage());
-        }
-    }
-
-    private static JsonObject createMessage(String type, String event, String data) {
-        JsonObject msg = new JsonObject();
-        msg.addProperty("type", type);
-        msg.addProperty("event", event);
-        msg.addProperty("data", data);
-        msg.addProperty("timestamp", System.currentTimeMillis());
-        return msg;
-    }
-
-    public static int getConnectionCount() {
-        return sessions.size();
-    }
-    
-    public static void setActiveStreamSession(StreamSession session) {
-        activeStreamSession = session;
-        LOGGER.info("Active stream session set: {}", session != null ? session.getSessionId() : "null");
+    private void broadcast(String msg) {
+        sessions.keySet().stream().filter(Session::isOpen).forEach(s -> {
+            try { s.getRemote().sendString(msg); } catch (Exception e) {}
+        });
     }
 }

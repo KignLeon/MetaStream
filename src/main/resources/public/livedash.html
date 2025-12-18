@@ -1,374 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MetaStream Live | Dashboard</title>
+    <meta charset="UTF-8">
+    <title>MetaStream Live - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-
-        #videoPlayer {
-            width: 100%;
-            height: auto;
-            background: #000;
-        }
-
-        .live-badge {
-            background: #ef4444;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 12px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .status-connected {
-            background: #10b981;
-        }
-
-        .status-disconnected {
-            background: #ef4444;
-        }
-    </style>
 </head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold">MetaStream <span class="text-blue-500">Live</span></h1>
+        <button onclick="stopStream()" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Stop Stream</button>
+    </nav>
 
-<body class="bg-gradient-to-b from-white to-gray-50 min-h-screen">
-
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 p-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <svg class="w-7 h-7 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M13.141 12.859a2.25 2.25 0 0 0-3.182 0l-1.06 1.06a2.25 2.25 0 0 0 0 3.182l.3.3a2.25 2.25 0 0 0 3.182 0l1.06-1.06a2.25 2.25 0 0 0 0-3.182l-.3-.3Z" />
-                </svg>
-                <h1 class="font-semibold text-lg" id="usernameDisplay">MetaStream Live</h1>
-                <span class="live-badge">🔴 LIVE</span>
+    <div class="max-w-[1400px] mx-auto grid grid-cols-12 gap-6 p-6">
+        <div class="col-span-8">
+            <div class="bg-black rounded-lg shadow-2xl aspect-video overflow-hidden border border-gray-200">
+                <video id="videoPlayer" class="w-full h-full" controls autoplay></video>
             </div>
-            <div class="flex items-center gap-2 text-sm">
-                <div id="wsStatus" class="status-dot status-disconnected"></div>
-                <span id="wsText" class="text-gray-500">Connecting...</span>
+            <div class="grid grid-cols-2 gap-4 mt-4 text-center">
+                <div class="bg-white p-4 rounded shadow border border-gray-100">
+                    <p class="text-gray-500 text-xs uppercase tracking-widest font-bold">Duration</p>
+                    <p id="timer" class="text-2xl font-mono">00:00:00</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow border border-gray-100">
+                    <p class="text-gray-500 text-xs uppercase tracking-widest font-bold">Messages</p>
+                    <p id="msgCount" class="text-2xl font-bold">0</p>
+                </div>
             </div>
         </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <!-- Video Player -->
-        <div class="lg:col-span-2 space-y-4">
-            <div class="bg-white rounded-2xl shadow-md overflow-hidden">
-                <video id="videoPlayer" controls autoplay muted class="w-full aspect-video">
-                </video>
-
-                <div id="playerStatus" class="p-4 text-center text-sm text-gray-500">
-                    ⏳ Waiting for stream...
-                </div>
-            </div>
-
-            <!-- Stream Stats -->
-            <div class="grid grid-cols-3 gap-4">
-                <div class="bg-white rounded-lg shadow p-4 text-center">
-                    <p class="text-2xl font-bold text-blue-600" id="duration">00:00:00</p>
-                    <p class="text-xs text-gray-500">Duration</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-4 text-center">
-                    <p class="text-2xl font-bold text-green-600" id="viewerCount">0</p>
-                    <p class="text-xs text-gray-500">Viewers</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-4 text-center">
-                    <p class="text-2xl font-bold text-purple-600" id="messageCount">0</p>
-                    <p class="text-xs text-gray-500">Messages</p>
-                </div>
-            </div>
-
-            <!-- Stream Info -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 class="font-semibold text-blue-900 mb-2">📡 Stream Info</h3>
-                <div class="space-y-1 text-sm text-blue-800">
-                    <p><strong>RTMP URL:</strong> <code id="rtmpUrl"
-                            class="bg-white px-2 py-0.5 rounded text-xs">--</code></p>
-                    <p><strong>HLS Playback:</strong> <code id="hlsUrl"
-                            class="bg-white px-2 py-0.5 rounded text-xs">--</code></p>
-                    <p><strong>Session ID:</strong> <span id="sessionId" class="font-mono text-xs">--</span></p>
-                </div>
-            </div>
-
-            <button id="stopStreamBtn"
-                class="w-full bg-red-600 text-white font-semibold py-3 rounded-lg hover:bg-red-700 transition-all">
-                🛑 Stop Stream
-            </button>
+        <div class="col-span-4 bg-white rounded-lg shadow border border-gray-200 flex flex-col h-[650px]">
+            <div class="p-4 border-b font-bold bg-gray-50 text-gray-700">Live Chat</div>
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 text-sm"></div>
+            <form id="chatForm" class="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+                <input type="text" id="chatInput" class="flex-1 border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Type message...">
+                <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 transition">Send</button>
+            </form>
         </div>
-
-        <!-- Chat Panel -->
-        <div class="bg-white rounded-2xl shadow-md p-6 flex flex-col">
-            <h2 class="text-xl font-semibold mb-4">Live Chat</h2>
-
-            <div id="chatMessages" class="flex-1 overflow-y-auto border border-gray-100 rounded-lg p-4 mb-4 space-y-2"
-                style="height: 500px;">
-                <p class="text-gray-400 text-sm text-center">No messages yet...</p>
-            </div>
-
-            <div class="flex gap-2">
-                <input id="chatInput" type="text" placeholder="Send a message..."
-                    class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <button id="sendBtn"
-                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all">
-                    Send
-                </button>
-            </div>
-        </div>
-    </main>
+    </div>
 
     <script>
-        const API_BASE = 'http://localhost:8080/api';
-        const WS_URL = 'ws://localhost:8080/ws';
-        const video = document.getElementById('videoPlayer');
-        const playerStatus = document.getElementById('playerStatus');
-        let hls = null;
-        let ws = null;
-        let sessionData = null;
-
-        // WebSocket connection
-        function connectWebSocket() {
-            ws = new WebSocket(WS_URL);
-
-            ws.onopen = () => {
-                console.log('✅ WebSocket connected');
-                document.getElementById('wsStatus').className = 'status-dot status-connected';
-                document.getElementById('wsText').textContent = 'Connected';
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('WS Message:', data);
-
-                if (data.type === 'chat') {
-                    addChatMessage(data.author, data.text, data.timestamp);
-                    updateMessageCount();
-                } else if (data.type === 'viewers') {
-                    document.getElementById('viewerCount').textContent = data.count;
-                } else if (data.type === 'system') {
-                    console.log('System message:', data.event, data.data);
-                }
-            };
-
-            ws.onclose = () => {
-                console.log('❌ WebSocket disconnected');
-                document.getElementById('wsStatus').className = 'status-dot status-disconnected';
-                document.getElementById('wsText').textContent = 'Reconnecting...';
-                setTimeout(connectWebSocket, 3000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-        }
-
-        // Load session
-        async function loadSession() {
-            try {
-                const res = await fetch(`${API_BASE}/stream/active`);
-                if (!res.ok) {
-                    playerStatus.innerHTML = '❌ No active stream. <a href="index.html" class="text-blue-600 underline">Start a new stream</a>';
-                    return;
-                }
-
-                sessionData = await res.json();
-                document.getElementById('usernameDisplay').textContent = sessionData.username + ' — Dashboard';
-                document.getElementById('rtmpUrl').textContent = sessionData.rtmpUrl;
-                document.getElementById('hlsUrl').textContent = sessionData.hlsUrl;
-                document.getElementById('sessionId').textContent = sessionData.sessionId;
-                document.getElementById('viewerCount').textContent = sessionData.viewers || 0;
-
-                if (sessionData.hlsUrl) {
-                    initHLSPlayer(sessionData.hlsUrl);
-                }
-
-                startDurationTimer();
-                setInterval(updateStats, 5000);
-
-            } catch (err) {
-                console.error('Load failed:', err);
-                playerStatus.textContent = '❌ Connection error';
+        let ws, username, messageCount = 0, startTime = Date.now();
+        
+        async function init() {
+            // FIXED: Synchronized endpoint name
+            const res = await fetch('/api/stream/session');
+            if (res.ok) {
+                const data = await res.json();
+                username = data.user.username;
+                setupVideo();
+                setupWS();
+            } else { 
+                window.location.href = 'index.html'; 
             }
         }
 
-        // HLS Player
-        function initHLSPlayer(hlsUrl) {
+        function setupVideo() {
+            const video = document.getElementById('videoPlayer');
+            const hlsUrl = 'http://localhost:8000/live/stream/index.m3u8';
             if (Hls.isSupported()) {
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    backBufferLength: 90
-                });
-
+                const hls = new Hls();
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
-
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    playerStatus.textContent = '✅ Stream connected';
-                    video.play().catch(e => console.log('Autoplay blocked:', e));
-                });
-
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        console.error('HLS Error:', data);
-                        playerStatus.textContent = '⚠️ Waiting for OBS stream...';
-                        setTimeout(() => hls.loadSource(hlsUrl), 5000);
-                    }
-                });
-
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = hlsUrl;
-                video.addEventListener('loadedmetadata', () => {
-                    playerStatus.textContent = '✅ Stream connected';
-                    video.play();
-                });
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             }
         }
 
-        // Stats update
-        async function updateStats() {
-            try {
-                const res = await fetch(`${API_BASE}/stream/active`);
-                if (res.ok) {
-                    const data = await res.json();
-                    document.getElementById('viewerCount').textContent = data.viewers || 0;
+        function setupWS() {
+            ws = new WebSocket(`ws://${location.host}/ws`);
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'chat') {
+                    const div = document.createElement('div');
+                    div.className = "p-2 bg-gray-50 rounded-lg border border-gray-100";
+                    div.innerHTML = `<span class="font-bold text-blue-600">${msg.author}:</span> <span class="text-gray-700">${msg.text}</span>`;
+                    const container = document.getElementById('chatMessages');
+                    container.appendChild(div);
+                    container.scrollTop = container.scrollHeight;
+                    messageCount++;
+                    document.getElementById('msgCount').innerText = messageCount;
                 }
-            } catch (err) {
-                console.error('Stats failed:', err);
-            }
+            };
+            ws.onclose = () => setTimeout(setupWS, 2000);
         }
 
-        // Duration timer
-        function startDurationTimer() {
-            if (!sessionData || !sessionData.startedAt) return;
-
-            const startTime = new Date(sessionData.startedAt);
-            setInterval(() => {
-                const now = new Date();
-                const diff = now - startTime;
-                const hours = Math.floor(diff / 3600000);
-                const minutes = Math.floor((diff % 3600000) / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                document.getElementById('duration').textContent =
-                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }, 1000);
-        }
-
-        // Chat
-        function addChatMessage(author, text, timestamp) {
-            const container = document.getElementById('chatMessages');
-
-            if (container.querySelector('.text-gray-400')) {
-                container.innerHTML = '';
-            }
-
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'p-2 hover:bg-gray-50 rounded';
-
-            const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-
-            msgDiv.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
-                        ${author[0].toUpperCase()}
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex items-baseline gap-2">
-                            <span class="font-semibold text-sm text-gray-700">${author}</span>
-                            <span class="text-xs text-gray-400">${time}</span>
-                        </div>
-                        <p class="text-sm text-gray-600 mt-0.5">${text}</p>
-                    </div>
-                </div>
-            `;
-
-            container.appendChild(msgDiv);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function sendMessage() {
+        document.getElementById('chatForm').onsubmit = (e) => {
+            e.preventDefault();
             const input = document.getElementById('chatInput');
-            const text = input.value.trim();
-            if (!text || !sessionData) return;
-
-            console.log('Sending message:', text);
-
-            // Send via WebSocket
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const message = {
-                    type: 'chat',
-                    author: sessionData.username,
-                    text: text
-                };
-                console.log('Sending WS message:', message);
-                ws.send(JSON.stringify(message));
+            if (input.value.trim() && ws.readyState === 1) {
+                ws.send(JSON.stringify({type:'chat', author: username, text: input.value.trim()}));
                 input.value = '';
-            } else {
-                console.error('WebSocket not connected');
-                alert('Chat not connected. Please refresh the page.');
+            }
+        };
+
+        async function stopStream() {
+            if (confirm("End this stream and see results?")) {
+                await fetch('/api/stream/stop', {method:'POST'});
+                window.location.href = 'summary.html';
             }
         }
 
-        function updateMessageCount() {
-            const count = document.getElementById('chatMessages').querySelectorAll('.hover\\:bg-gray-50').length;
-            document.getElementById('messageCount').textContent = count;
-        }
+        setInterval(() => {
+            const s = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').innerText = new Date(s * 1000).toISOString().substr(11, 8);
+        }, 1000);
 
-        // Stop stream
-        document.getElementById('stopStreamBtn').addEventListener('click', async () => {
-            if (!confirm('Stop the stream? This will end the session.')) return;
-
-            try {
-                const res = await fetch(`${API_BASE}/stream/stop`, { method: 'POST' });
-                if (res.ok) {
-                    window.location.href = 'summary.html';
-                } else {
-                    alert('❌ Failed to stop stream');
-                }
-            } catch (err) {
-                console.error('Stop failed:', err);
-                alert('❌ Connection error');
-            }
-        });
-
-        // Event listeners
-        document.getElementById('sendBtn').addEventListener('click', sendMessage);
-        document.getElementById('chatInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        // Initialize
-        connectWebSocket();
-        loadSession();
+        init();
     </script>
 </body>
-
 </html>

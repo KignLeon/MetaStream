@@ -68,3 +68,39 @@ Peak Viewers: 0
 Chat Messages:
 --------------------------------------------------
 
+==================================================
+Stream Session Log
+==================================================
+User: TestUser
+Session ID: b3e8b98d-646a-4d2e-ae5e-601e62f7fc79
+Started: 2025-12-18T11:29:52.764120
+Ended: 2025-12-18T11:30:19.854329
+Duration: 0h 0m 27s
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
+==================================================
+Stream Session Log
+==================================================
+User: TestUser
+Session ID: 5d5f8769-68d0-479e-ab2c-675e4655ec11
+Started: 2025-12-18T11:33:02.222688
+Ended: 2025-12-18T11:37:27.898164
+Duration: 0h 4m 25s
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
+[2025-12-18T11:45:48.539334] SYSTEM: Stream Ended. Final duration: 00:00:11
+[2025-12-18T11:45:58.691151] SYSTEM: Stream Ended. Final duration: 00:00:04
+[2025-12-18T11:48:47.957632] SYSTEM: Stream Ended. Final duration: 00:00:03
+[2025-12-18T11:54:24.932331] SYSTEM: Stream Ended. Duration: 00:01:48
+[2025-12-18T11:56:51.997399] SYSTEM: Stream Ended. Duration: 00:00:02
+[2025-12-18T12:01:33.219155] SYSTEM: Stream Ended. Duration: 00:00:02
+[2025-12-18T12:07:56.186731] SYSTEM: Stream Ended. Duration: 00:00:05
+[2025-12-18T12:13:10.734741] SYSTEM: Stream Ended. Duration: 00:00:07

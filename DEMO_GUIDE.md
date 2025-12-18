@@ -1,4 +1,7 @@
 # 🚀 MetaStream Live - Demo Day Quick Start Guide
+Meta Glasses → Instagram App → iPhone Screen Mirror → OBS → FFmpeg → Dashboard
+
+java -jar target/metastream-1.0-SNAPSHOT.jar
 
 ## 📋 Pre-Demo Checklist (Print This!)
 
