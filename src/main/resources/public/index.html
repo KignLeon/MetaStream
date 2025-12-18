@@ -118,7 +118,24 @@
 
                 } else {
                     statusMsg.className = 'text-sm mt-4 text-red-600';
-                    statusMsg.textContent = '⚠️ ' + (result.message || 'Error creating session');
+
+                    // Show helpful message for common errors
+                    if (result.error && result.error.includes('already active')) {
+                        statusMsg.textContent = '⚠️ A stream is already active. Please stop it first or refresh the page.';
+
+                        // Add a button to stop the existing stream
+                        const stopBtn = document.createElement('button');
+                        stopBtn.textContent = 'Stop Existing Stream';
+                        stopBtn.className = 'mt-2 w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700';
+                        stopBtn.onclick = async () => {
+                            await fetch(`${API_BASE}/stream/stop`, { method: 'POST' });
+                            location.reload();
+                        };
+                        statusMsg.appendChild(document.createElement('br'));
+                        statusMsg.appendChild(stopBtn);
+                    } else {
+                        statusMsg.textContent = '⚠️ ' + (result.message || result.error || 'Error creating session');
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);

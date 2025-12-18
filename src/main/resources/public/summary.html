@@ -70,33 +70,25 @@
     <script>
         const API_BASE = 'http://localhost:8080/api';
 
-        // Load summary from last session
-        async function loadSummary() {
-            try {
-                // Try to get active session info (might still be available)
-                const res = await fetch(`${API_BASE}/stream/active`);
+        // Get session data from localStorage (set by livedash when stopping)
+        const sessionData = JSON.parse(localStorage.getItem('lastSession') || 'null');
 
-                if (res.ok) {
-                    const data = await res.json();
-                    displaySummary(data);
-                } else {
-                    // If no active session, show placeholder
-                    document.getElementById('duration').textContent = 'N/A';
-                    document.getElementById('peakViewers').textContent = 'N/A';
-                    document.getElementById('totalMessages').textContent = 'N/A';
-                    document.getElementById('notifications').textContent = 'N/A';
-                }
-            } catch (err) {
-                console.error('Failed to load summary:', err);
+        function displaySummary() {
+            if (sessionData) {
+                console.log('Loading session data from localStorage:', sessionData);
+                document.getElementById('duration').textContent = sessionData.duration || 'N/A';
+                document.getElementById('peakViewers').textContent = sessionData.peakViewers || 0;
+                document.getElementById('totalMessages').textContent = sessionData.totalMessages || 0;
+                document.getElementById('notifications').textContent = sessionData.notificationsSent || 0;
+                document.getElementById('sessionId').textContent = sessionData.sessionId || 'N/A';
+            } else {
+                console.log('No session data in localStorage, showing placeholders');
+                document.getElementById('duration').textContent = 'N/A';
+                document.getElementById('peakViewers').textContent = 'N/A';
+                document.getElementById('totalMessages').textContent = 'N/A';
+                document.getElementById('notifications').textContent = 'N/A';
+                document.getElementById('sessionId').textContent = 'N/A';
             }
-        }
-
-        function displaySummary(data) {
-            document.getElementById('duration').textContent = data.duration || '--:--:--';
-            document.getElementById('peakViewers').textContent = data.peakViewers || 0;
-            document.getElementById('totalMessages').textContent = data.messages || 0;
-            document.getElementById('notifications').textContent = data.notificationsSent || 0;
-            document.getElementById('sessionId').textContent = data.sessionId || 'N/A';
         }
 
         // Download chat log
@@ -105,12 +97,18 @@
                 const res = await fetch(`${API_BASE}/chat/messages`);
                 const messages = await res.json();
 
+                if (messages.length === 0) {
+                    alert('No chat messages to download');
+                    return;
+                }
+
                 // Create downloadable text file
                 let logContent = 'MetaStream Live - Chat Log\n';
                 logContent += '='.repeat(50) + '\n\n';
 
                 messages.forEach(msg => {
-                    logContent += `[${msg.timestamp}] ${msg.author}: ${msg.text}\n`;
+                    const timestamp = new Date(msg.timestamp).toLocaleString();
+                    logContent += `[${timestamp}] ${msg.author}: ${msg.text}\n`;
                 });
 
                 const blob = new Blob([logContent], { type: 'text/plain' });
@@ -121,13 +119,16 @@
                 a.click();
                 URL.revokeObjectURL(url);
 
+                console.log('Chat log downloaded successfully');
+
             } catch (err) {
                 console.error('Download failed:', err);
                 alert('❌ Failed to download log');
             }
         });
 
-        loadSummary();
+        // Display summary on load
+        displaySummary();
     </script>
 </body>
 

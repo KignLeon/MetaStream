@@ -1,0 +1,56 @@
+=== Stream Session Logged at 2025-12-18 09:07:02 ===
+User: leon
+Session ID: 82c034a4-d317-404c-a4e4-31f25c142e32
+Duration: 00:05:18
+Chat Log:
+==================================================
+
+=== Stream Session Logged at 2025-12-18 09:25:47 ===
+User: TestUser
+Session ID: 3edf31b8-c506-4933-abf5-2f4d17e38a7f
+Duration: 00:00:14
+Chat Log:
+==================================================
+
+==================================================
+Stream Session Log
+==================================================
+User: TestUser
+Session ID: 3e35e3c9-4873-49e0-8652-a684e2382ea2
+Started: 2025-12-18T09:38:27.837289
+Ended: 2025-12-18T09:39:04.268638
+Duration: 0h 0m 36s
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
+==================================================
+Stream Session Log
+==================================================
+User: TestUsse
+Session ID: f9d02e4b-eb20-43ad-9e80-12cd23e9d0e0
+Started: 2025-12-18T09:39:40.589259
+Ended: 2025-12-18T09:46:43.359923
+Duration: 0h 7m 2s
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+
+==================================================
+Stream Session Log
+==================================================
+User: TestUser
+Session ID: b0f3ebd6-e07d-4189-a08c-cb28990915b4
+Started: 2025-12-18T10:01:23.633327
+Ended: 2025-12-18T10:06:37.414739
+Duration: 0h 5m 13s
+Total Messages: 0
+Peak Viewers: 0
+
+Chat Messages:
+--------------------------------------------------
+

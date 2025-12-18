@@ -1,14 +1,19 @@
 package com.mts;
 
-import org.eclipse.jetty.websocket.api.*;
-import org.eclipse.jetty.websocket.api.annotations.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.annotations.WebSocket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 /**
  * LO6: GUI & Events - WebSocket handles real-time chat events LO7: Exception
@@ -70,9 +75,9 @@ public class WebSocketHandler {
     }
 
     private void handleChatMessage(JsonObject data) {
-        try {
-            String author = data.get("author").getAsString();
-            String text = data.get("text").getAsString();
+    try {
+        String author = data.has("author") ? data.get("author").getAsString() : "Unknown";
+        String text = data.has("text") ? data.get("text").getAsString() : "";
 
             LOGGER.info("[CHAT] {}: {}", author, text);
 

@@ -2,11 +2,19 @@ package com.mts;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
-import static spark.Spark.*;
+import static spark.Spark.awaitInitialization;
+import static spark.Spark.before;
+import static spark.Spark.get;
+import static spark.Spark.init;
+import static spark.Spark.port;
+import static spark.Spark.post;
+import static spark.Spark.staticFiles;
+import static spark.Spark.webSocket;
 
 /**
  * LO1: OOP Principles - Modular class design LO6: GUI & Events - HTTP endpoints
@@ -17,7 +25,8 @@ public class Main {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     private static final Gson gson = new Gson();
-    private static StreamSession activeSession;
+    private static StreamSession activeSession = null;
+    private static StreamSession lastSession = null;
     private static final FileLogger fileLogger = new FileLogger();
 
     public static void main(String[] args) {
@@ -154,6 +163,7 @@ public class Main {
                 String duration = activeSession.getDuration();
                 int messages = activeSession.getTotalMessages();
 
+                lastSession = activeSession;
                 activeSession.stopSession();
 
                 // LO8: Text File I/O - Write log to file
@@ -184,6 +194,26 @@ public class Main {
                 res.status(500);
                 return errorResponse("Failed to stop stream: " + e.getMessage());
             }
+        });
+
+        get("/api/stream/last", (req, res) -> {
+            res.type("application/json");
+
+            if (lastSession == null) {
+                res.status(404);
+                return errorResponse("No session history");
+            }
+
+            JsonObject response = new JsonObject();
+            response.addProperty("status", "completed");
+            response.addProperty("sessionId", lastSession.getSessionId());
+            response.addProperty("username", lastSession.getUser().getUsername());
+            response.addProperty("duration", lastSession.getDuration());
+            response.addProperty("messages", lastSession.getTotalMessages());
+            response.addProperty("peakViewers", lastSession.getPeakViewerCount());
+            response.addProperty("notificationsSent", lastSession.getNotificationsSent());
+
+            return gson.toJson(response);
         });
 
         /**
